@@ -1,0 +1,418 @@
+;****
+; Operator Interface
+; ***
+
+	list p=16f877 		; list directive - defines processor
+	#include <p16f877.inc>  ; processor specific definitions
+
+	__CONFIG _CP_OFF & _WDT_OFF & _BODEN_ON & _PWRTE_ON & _HS_OSC & _WRT_ENABLE_ON & _CPD_OFF & _LVP_OFF ;configuration bits
+
+
+; ** Variable Definitions
+
+	cblock 0x70
+		w_temp 		; used for context saving - interrupts
+		status_temp 	; used for context saving - interrupts
+		lcd_temp
+		lcd_d1
+		lcd_d2
+		operation_time
+		option_temp
+		Table_Counter
+		com
+		dat
+		COUNTH
+		COUNTM
+		COUNTL
+		delay_timer
+		
+	endc
+
+; Declare constants for pin assignments
+
+	RS equ 2
+	E  equ 3
+
+; Defining macros
+
+;Helper Macro
+WRT_LCD macro val
+	movlw val
+	call WRITE_LCD
+endm
+
+;Delay Macro
+LCD_DELAY macro
+	movlw 0xFF
+	movwf lcd_d1
+	decfsz lcd_d1, f
+	goto $-1
+endm
+
+; Switch to Bank 0 Macro
+bank0 macro
+	bcf STATUS, RP0
+	bcf STATUS, RP1
+endm
+
+; Switch to Bank 1 Macro
+bank1 macro
+	bsf STATUS, RP0
+	bcf STATUS, RP1
+endm
+
+;*****DISPLAY MACRO*****
+;***********************
+
+Display macro	Message
+		local	loop_
+		local	end_
+		clrf	Table_Counter
+		clrw
+
+loop_	movf	Table_Counter, W
+	call	Message
+	xorlw	B'00000000' ;Check to see if 0 is returned
+	btfsc	STATUS, Z
+		goto	end_
+	call	WR_DATA
+	incf	Table_Counter, F
+	goto	loop_
+
+end_
+	endm
+
+; Main Code
+
+	ORG 0x0000 		;The reset location must be 0
+	goto Start_Code 	;Jump to the main code to start
+
+Start_Code
+
+;Initializing the PIC and the LCD/Keypad
+
+	clrf 	INTCON 		;block interrupts
+	
+	;setting I/O type (TRIS)
+
+	bank1		    	;select bank 1 
+	clrf	TRISA	    	; Port A is output	
+	movlw 	b'11110010' 	;Setting the required keypad inputs (B1, 4-7)
+	clrf	TRISC	    	; Port C is output
+	clrf	TRISD	    	; Port D is output
+
+	bank0		    	;select bank 0
+
+	;initializing ports (PORT)
+	clrf	PORTA
+	clrf	PORTB
+	clrf	PORTC
+	clrf 	PORTD
+	
+	call InitLCD 		;initialize the LCD (using code from LCD.asm, imported by LCD.inc - ??)
+	
+
+STANDBY_DISPLAY
+
+	Display	Welcome_Message
+
+LEFT	movlw	b'00011000'
+	call	WR_INS
+	call	HalfS
+	goto	POLL_LOOP
+
+
+POLL_LOOP
+	btfss	PORTB, 1	;Wait until an input is detected from the keypad
+	goto 	LEFT		;If there's no input test again.
+	
+	swapf	PORTB, W	;Read port B [4:7] into W[3:0]
+	andlw 	0x0F
+	
+	movwf	option_temp
+	xorlw	b'00000011'
+	btfss	STATUS, Z
+	goto	STARTER
+	goto	LEFT
+
+STARTER
+	call 	BEGIN_OPERATION
+	goto 	END_DISPLAY
+
+BEGIN_OPERATION
+	movlw	d'500'
+	movwf	delay_timer
+
+BEGIN_OP_LOOP
+	Display OperatingMessage
+	dcfsz	delay_timer
+	goto	BEGIN_OP_LOOP
+
+END_DISPLAY
+	Display End_Message1
+LEFTEND	movlw	b'00011000'
+	call	WR_INS
+	call	HalfS
+	call	Switch_Lines
+	Display	End_Message2
+
+	btfss	PORTB, 1	;Wait until an input is detected from the keypad
+	goto 	LEFTEND		;If there's no input test again.
+	
+	swapf	PORTB, W	;Read port B [4:7] into W[3:0]
+	andlw 	0x0F
+	
+	goto	OPTION_SELECT
+
+
+OPTION_SELECT
+	movwf	option_temp	
+	xorlw	b'00000011'		;XOR with the input for A 
+	btfss	STATUS, Z 	;If the value stored in this register is now 0, this means the input was an A
+	goto 	OPTION_A
+	movf	option_temp, W
+	
+	xorlw	b'00000111'		;XOR with the input for B
+	btfss	STATUS, Z	;If it's 0, input was a B
+	goto 	OPTION_B	
+	movf	option_temp, W
+	
+	xorlw	b'00001011'		;XOR with the input for C
+	btfss	STATUS, Z	
+	goto 	OPTION_C
+	movf	option_temp, W
+	
+	xorlw 	b'00001111'		;XOR with the input for D
+	btfss	STATUS, Z
+	goto	OPTION_D
+	movf	option_temp, W
+
+OPTION_A
+	Display MessageA	
+	goto $
+OPTION_B
+	Display MessageB
+	goto $
+OPTION_C
+	Display MessageC
+	goto $
+
+OPTION_D
+	Display MessageD
+	goto$
+;*****LOOK UP TABLE*****
+;***********************
+
+
+Welcome_Message
+	addwf	PCL, F
+	dt	"Welcome! Press # to begin operation.", 0
+
+End_Message1
+	addwf	PCL, F
+	dt	"Operation Complete. A: Functionality Report, B: Op. Time"
+
+End_Message2
+	addwf	PCL, F
+	dt	"C: , D: Return to Standby
+MessageA
+	addwf	PCL, F
+	dt	"This is the message that goes with option A",0
+
+MessageB
+	addwf	PCL, F
+	dt	"This is the message that goes with option B",0
+
+MessageC
+	addwf	PCL, F
+	dt	"This is the message that goes with option C",0
+
+MessageD
+	addwf	PCL, F
+	dt	"This is the message that goes with option D",0
+OperatingMessage
+	addwf	PCL, F
+	dt	"Operation in Progress",0
+
+
+;*****LCD SUBROUTINES*****
+;*************************
+
+	
+InitLCD
+	bcf 	STATUS, RP0
+	bsf 	PORTD, E	;E is default high
+	
+	;Wait for LCD POR to finish
+	call 	lcdLongDelay
+	call 	lcdLongDelay
+	call 	lcdLongDelay
+	
+	;Ensure that the LCD is in 8 bit mode
+	bcf	PORTD, RS
+	movlw	B'00110000'
+	call 	MoveMSB
+	call	lcdLongDelay	
+	call	ClkLCD		;Finish last 4-bit send
+	call	lcdLongDelay	;Max instruction time
+	call	ClkLCD		;Assuming 4-bit mode, set 8-mode
+	call 	ClkLCD		;If already in 8 bit mode, stay in 8 bit mode
+
+	;Set to 4 bit mode since mode is now known
+	movlw 	B'00100000'
+	call 	MovMSB
+	call 	lcdLongDelay
+	call 	lcdLongDelay
+	call 	ClkLCD
+
+	;Give LCD initialization instructions
+	WRT_LCD	B'00101000'	;4 bits, 2 lines, 5x8 dot
+	call 	lcdLongDelay
+	call 	lcdLongDelay
+	WRT_LCD	B'00001111'	;display on, cursor, blink
+	call	lcdLongDelay
+	call	lcdLongDelay	
+	WRT_LCD	B'00000110'	;Increment, no shift
+	call	lcdLongDelay
+	call	lcdLongDelay
+	
+	;Ready for displaying things :) 
+	call	CLEAR_LCD	
+	bsf	PORTD, RS	;character mode
+	return
+
+
+;*****WRITE_LCD: Clock MSB and LSB of W to Port D in two cycles*****
+;*******************************************************************
+
+WRITE_LCD
+	movwf	lcd_temp	;store original value
+	call	MoveMSB		;move MSB to Port D
+	call	ClkLCD	
+	swapf	lcd_temp,w	;Swap LSB of value into MSB of W
+	call	MoveMSB		;move to PORTD
+	call	ClkLCD
+	return
+
+;****CLEAR_LCD: Clear the Display****
+;************************************
+
+CLEAR_LCD
+	bcf     PORTD,RS       ;Instruction mode
+  	WRT_LCD b'00000001'
+    	call    lcdLongDelay
+    	return
+
+
+;****ClkLCD: Pulse E line low****
+;*********************************   
+ClkLCD
+    LCD_DELAY
+    bcf 	PORTD,E
+    LCD_DELAY  		; __    __
+    bsf 	PORTD,E ;   |__|
+    return
+
+
+;****MoveMSB: Move MSB of W to Port D****
+;****************************************
+
+MoveMSB
+    andlw 	0xF0
+    iorwf 	PORTD,f
+    iorlw 	0x0F
+    andwf 	PORTD,f
+    return
+
+;*****Delay: ~5ms*****
+;*********************
+
+lcdLongDelay
+    movlw 	d'20'
+    movwf 	lcd_d2
+
+LLD_LOOP
+    LCD_DELAY
+    decfsz 	lcd_d2,f
+    goto 	LLD_LOOP
+    return
+    
+;***************************************
+; Delay 0.5s
+;***************************************
+HalfS	
+      local	HalfS_0
+      movlw 	0x88
+      movwf 	COUNTH
+      movlw 	0xBD
+      movwf 	COUNTM
+      movlw 	0x03
+      movwf 	COUNTL
+
+HalfS_0
+      decfsz 	COUNTH, f
+      goto   	$+2
+      decfsz 	COUNTM, f
+      goto   	$+2
+      decfsz 	COUNTL, f
+      goto   	HalfS_0
+
+      goto 	$+1
+      nop
+      nop
+return
+   
+
+
+
+;****************************************
+; Write command to LCD - Input : W , output : -
+;****************************************
+WR_INS
+	bcf		RS				;clear RS
+	movwf	com				;W --> com
+	andlw	0xF0			;mask 4 bits MSB w = X0
+	movwf	PORTD			;Send 4 bits MSB
+	bsf		E				;
+	call	lcdLongDelay	;__    __
+	bcf		E				;  |__|
+	swapf	com,w
+	andlw	0xF0			;1111 0010
+	movwf	PORTD			;send 4 bits LSB
+	bsf		E				;
+	call	lcdLongDelay	;__    __
+	bcf		E				;  |__|
+	call	lcdLongDelay
+	return
+
+    ;****************************************
+    ; Write data to LCD - Input : W , output : -
+    ;****************************************
+WR_DATA
+	bsf		RS				
+	movwf	dat
+	movf	dat,w
+	andlw	0xF0		
+	addlw	4
+	movwf	PORTD		
+	bsf		E				;
+	call	lcdLongDelay	;__    __
+	bcf		E				;  |__|
+	swapf	dat,w
+	andlw	0xF0		
+	addlw	4
+	movwf	PORTD		
+	bsf		E				;
+	call	lcdLongDelay	;__    __
+	bcf		E				;  |__|
+	return
+   
+;***************************************
+; LCD control
+;***************************************
+Switch_Lines
+		movlw	B'11000000'
+		call	WR_INS
+		return
+
+END

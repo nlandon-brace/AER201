@@ -1,0 +1,254 @@
+Subsystem Evaluation #1 - Pseudocode
+
+
+;PIN ASSIGNMENTS
+#define	TRAYPORT	PORTA, 3 ;input
+#define	IRMUX_IN	PORTC, 1 ;input
+#define	IRMUX_SEL	PORTC, 2 ;output
+#define	PSMUX_SEL	PORTC, 3 ;output
+#define	PSMUX_IN	PORTA, 2 ;input
+
+; all outputs
+
+#define	SERVO1		PORTB, 1 
+#define	SERVO2		PORTB, 2
+#define	STEPPER1	PORTB, 3
+#define	STEPPER2	PORTB, 4
+
+; New required variables.
+	LastStableState
+	Tray_CheckCounter
+	timer_counter
+	reference_voltage
+
+BEGIN_OPERATION
+	
+	;Configure A/D convertor 
+	movlw	B'00001110'	;configure ADCON1 to be right-justified (6 least significant bits of ADRESHL are 0)
+	movwf	ADCON1
+
+ 	call	CHECK_TRAY 	;make sure that the tray is in the correct position before the operation begins
+	
+	; bring down the shade arrays by setting the output high
+	bsf		STEPPER1 
+	bsf		STEPPER2
+
+	while 	(SHADE ARRAY STILL UP)
+		wait 
+	end while
+
+	;Turn stepper motors off, stop moving shade array
+	bcf		STEPPER1
+	bcf		STEPPER2
+
+	; Turn servo motors on begin moving switch plate
+	bsf		SERVO1
+	bsf		SERVO2
+
+	while	(SWITCH PLATE NOT FINISHED MOVING)
+		wait
+	endwhile
+
+
+	; Trun servo motors off to stop moving switches
+	bcf		SERVO1
+	bcf		SERVO2
+
+
+CHECK_LED1
+	set 	IRMUX_SEL = 0
+	set 	PSMUX_SEL = 0
+	call	LIGHT_TEST
+	movwf 	stats1
+
+CHECK_LED2
+	set 	IRMUX_SEL = 1
+	set 	PSMUX_SEL = 1
+	call	LIGHT_TEST
+	movwf 	stats2
+
+CHECK_LED3
+	set 	IRMUX_SEL = 2
+	set 	PSMUX_SEL = 2
+	call	LIGHT_TEST
+	movwf 	stats3
+
+CHECK_LED4
+	set 	IRMUX_SEL = 3
+	set 	PSMUX_SEL = 3
+	call	LIGHT_TEST
+	movwf 	stats4
+
+CHECK_LED5
+	set 	IRMUX_SEL = 4
+	set 	PSMUX_SEL = 4
+	call	LIGHT_TEST
+	movwf 	stats5
+
+CHECK_LED6
+	set 	IRMUX_SEL = 5
+	set 	PSMUX_SEL = 5
+	call	LIGHT_TEST
+	movwf 	stats6
+
+CHECK_LED7
+	set 	IRMUX_SEL = 6
+	set 	PSMUX_SEL = 6
+	call	LIGHT_TEST
+	movwf 	stats7
+
+CHECK_LED8
+	set 	IRMUX_SEL = 7
+	set 	PSMUX_SEL = 7
+	call	LIGHT_TEST
+	movwf 	stats8
+
+CHECK_LED9
+	set 	IRMUX_SEL = 8
+	set 	PSMUX_SEL = 8
+	call	LIGHT_TEST
+	movwf 	stats9
+
+return
+
+
+;*************
+; LIGHT TEST
+; ************
+
+LIGHT_TEST
+	btfss	IR_MUXIN
+	goto	NOT_THERE
+	lights_total++
+	goto	ON_TEST
+
+NOT_THERE
+	movlw 	d'3'
+	return  
+
+ON_TEST
+
+	while (data_points < 500 & LIGHT_ON_FLAG < 4)
+	{
+		call	AD_CONV(PSMUX_IN);
+		data_points++;
+		movwf 	voltage_temp
+
+		if(voltage_temp > threshold)	;threshold TBD by experiment, ~0
+			LIGHT_ON_FLAG++;
+	}
+
+	if(LIGHT_ON_FLAG == 4)
+		goto	FLICKER_TEST
+
+	else
+		movlw d'2'
+		return
+
+FLICKER_TEST	
+	call	AD_CONV(PSMUX_IN)
+	movwf 	reference_voltage
+
+	while(data points < 500 && FLICKERED_FLAG < 5)
+	{
+		call	AD_CONV(PSMUX_IN)
+		movwf   voltage_temp
+		data_points++;
+
+		if(abs(voltage_temp-reference_voltage) > threshold)	;threshold TBD by experiment, >> 0
+			FLICKERED_FLAG++;
+
+	}
+
+	if(FLICKERED_FLAG == 5)
+	{
+		movlw d'0'
+		return
+	}
+
+	else
+	{
+		movlw d'1'
+		return
+	}
+
+
+;**************
+; CHECK TRAY
+;
+; Debounce the signal coming from the contact switches to ensure that
+; the tray is placed correctly so that operation can begin
+;**************
+
+CHECK_TRAY
+	movlw	D'1'
+	movwf	LastStableState	;assume that the switch is up
+	clrf	Tray_CheckCounter
+
+CHECK_TRAY_LOOP
+	clrw
+	btfsc	LastStableState, 0
+	goto	CHECK_TRAY_DOWN
+
+CHECK_TRAY_UP
+	btfsc	TRAYPORT
+	incf	Tray_CheckCounter, W
+	goto	END_CHECK_TRAY
+
+CHECK_TRAY_DOWN
+	btfss	TRAYPORT
+	incf	Tray_CheckCounter, W
+
+END_CHECK_TRAY
+	movwf	Tray_CheckCounter
+	xorlw	d'5'
+	btfss	STATUS, Z
+	goto	Delay1ms
+
+TRAY_CHECKED
+	comf	LastStableState, f
+	clrf	Tray_CheckCounter
+	btfsc	LastStableState, 0
+	goto	Delay1ms
+	return
+
+Delay1ms
+	call 	lcdLongDelay x6
+	goto	CHECK_TRAY_LOOP	
+
+
+
+;********************
+; A/D CONVERT ROUTINE
+;********************
+
+AD_CONV	
+	movlw	B'10000001'	;configure ADCON0
+	movwf	ADCON0
+	call	TIM20
+	bsf		ADCON0, GO
+
+WAIT
+	btfsc	ADCON0, GO
+	goto 	WAIT
+	bank1
+	movwf 	ADRESL, W
+	bank0
+	return
+
+
+;************
+; 20 us delay
+; ***********
+
+TIM20	
+	movlwf	084H
+	movlwftimer_counter
+
+TIMER_LOOP
+	decfsz	TIMCNT, F
+	goto	TIMER_LOOP
+	nop
+	return
+
+END
