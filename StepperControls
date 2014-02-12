@@ -1,0 +1,43 @@
+#define STEPA	PORTC, 0
+#define STEPB	PORTC, 1
+#define STEPC	PORTC, 2
+#define STEPD	PORTC, 3
+
+STEPPER_DRIVERFOR
+	bsf		STEPA
+	call	HalfS
+	bcf		STEPA
+	call	HalfS
+	bsf		STEPC
+	call	HalfS
+	bcf		STEPC
+	call	HalfS
+	bsf		STEPB
+	call	HalfS
+	bcf		STEPB
+	call	HalfS
+	bsf		STEPD
+	call	HalfS
+	bcf		STEPD
+	call	HalfS
+	return
+
+STEPPER_DRIVERREV
+	bsf		STEPD
+	call	HalfS
+	bcf		STEPD
+	call	HalfS
+	bsf		STEPB
+	call	HalfS
+	bcf		STEPB
+	call	HalfS
+	bsf		STEPC
+	call	HalfS
+	bcf		STEPC
+	call	HalfS
+	bsf		STEPC
+	call	HalfS
+	bcf		STEPC
+	call	HalfS
+	return
+	

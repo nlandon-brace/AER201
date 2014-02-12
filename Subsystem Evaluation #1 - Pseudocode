@@ -1,6 +1,5 @@
 Subsystem Evaluation #1 - Pseudocode
 
-
 ;PIN ASSIGNMENTS
 #define	TRAYPORT	PORTA, 3 ;input
 #define	IRMUX_IN	PORTC, 1 ;input
@@ -24,9 +23,11 @@ Subsystem Evaluation #1 - Pseudocode
 BEGIN_OPERATION
 	
 	;Configure A/D convertor 
+	bank1
 	movlw	B'00001110'	;configure ADCON1 to be right-justified (6 least significant bits of ADRESHL are 0)
 	movwf	ADCON1
-
+	bank0
+	
  	call	CHECK_TRAY 	;make sure that the tray is in the correct position before the operation begins
 	
 	; bring down the shade arrays by setting the output high
