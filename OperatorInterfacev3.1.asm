@@ -48,6 +48,10 @@
         #define STEPC   PORTD, 4
         #define STEPD   PORTC, 3
         #define TRAYPORT PORTD, 0
+        #define MUX0    PORTA, 1
+        #define MUX1    PORTA, 2
+        #define MUX2    PORTA, 3
+        #define MUX3    PORTA, 4
 
          ORG    0x0000     ;RESET vector must always be at 0x00
          goto   init       ;Just jump to the main code section.
@@ -898,8 +902,76 @@ BEGIN_OPERATION
     call    HalfS
     call    SERVO_START
 
-    call    ADC_MainLoop
+CHECK_LED1
+    bcf     MUX0
+    bcf     MUX1
+    bcf     MUX2
+    bcf     MUX3
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats1
 
+CHECK_LED2
+    bsf     MUX0
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats2
+
+CHECK_LED3
+    bcf     MUX0
+    bsf     MUX1
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats3
+
+CHECK_LED4
+    bsf     MUX0
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats4
+
+CHECK_LED5
+    bcf     MUX0
+    bcf     MUX1
+    bsf     MUX2
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats5
+
+CHECK_LED6
+    bsf     MUX0
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats6
+
+CHECK_LED7
+    bsf     MUX1
+    bcf     MUX0
+    call    LIGHT_TEST
+    movwf   stats7
+
+CHECK_LED8
+    bsf     MUX0
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats8
+
+CHECK_LED9
+    bcf     MUX0
+    bcf     MUX1
+    bcf     MUX2
+    bsf     MUX3
+    call    HalfS
+    call    HalfS
+    call    LIGHT_TEST
+    movwf   stats9
 
     call    STEPPER_DRIVERREV
     bsf     INTCON, 5
@@ -908,6 +980,12 @@ BEGIN_OPERATION
 
     return
 
+;***********
+; LIGHT TEST
+;***********
+LIGHT_TEST
+    movlw   d'3'
+    return
 
 ;*********
 ; STEPPER MOTOR DRIVING THINGS
@@ -960,6 +1038,8 @@ SERVO_START
     bank0
     movwf   CCP1CON
     movlw   b'00000100'
+    movwf   T2CON
+    movlw   b'00110010'
     movwf   CCPR1L
     movlw   0xFF
     call    ADC_Delay
