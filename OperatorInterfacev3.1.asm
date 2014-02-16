@@ -9,7 +9,6 @@
         COUNTM
         COUNTL
         Table_Counter
-        lcd_tmp
         lcd_d1
         lcd_d2
         com
@@ -218,16 +217,16 @@ STARTER
         movlw   d'0'
         movwf   optime
 
-        movlw   d'7'
+        movlw   d'4'
         movwf   lights_total
 
         movlw   d'1'
         movwf   stats1
 
-        movlw   d'0'
+        movlw   d'3'
         movwf   stats2
 
-        movlw   d'2'
+        movlw   d'0'
         movwf   stats3
 
         banksel stats4
@@ -239,7 +238,7 @@ STARTER
          movwf   stats5
 
          banksel stats6
-         movlw   d'1'
+         movlw   d'0'
          movwf   stats6
 
          banksel stats7
@@ -612,7 +611,18 @@ CHECK_NONE
         xorlw   d'3'
         btfss   STATUS, Z
         return
-        Display NO_LIGHT
+        movlw   " "
+        call    WR_DATA
+        movlw   "-"
+        call    WR_DATA
+        movlw   " "
+        call    WR_DATA
+        movlw   "N"
+        call    WR_DATA
+        movlw   "/"
+        call    WR_DATA
+        movlw   "A"
+        call    WR_DATA
         return
 
 ; Displays D; Return to Main on the second line, waits for input
@@ -912,7 +922,7 @@ STEPPER_DRIVERREV
     call    HalfS
     bcf     STEPB
     call    HalfS
-    bsf     STEPC   
+    bsf     STEPC
     call    HalfS
     bcf     STEPC
     call    HalfS
