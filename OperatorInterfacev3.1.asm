@@ -35,18 +35,22 @@
         w_temp
         status_temp
         count38
+        adc_delay
+        Tray_CheckCounter
+        LastStableState
     endc
 
     ;Declare constants for pin assignments (LCD on PORTD)
-        #define RS  PORTD,2
-        #define E   PORTD,3
+        #define RS      PORTD,2
+        #define E       PORTD,3
         #define STEPA   PORTC, 0
         #define STEPB   PORTC, 1
-        #define STEPC   PORTC, 2
+        #define STEPC   PORTD, 4
         #define STEPD   PORTC, 3
+        #define TRAYPORT PORTD, 0
 
-         ORG       0x0000     ;RESET vector must always be at 0x00
-         goto      init       ;Just jump to the main code section.
+         ORG    0x0000     ;RESET vector must always be at 0x00
+         goto   init       ;Just jump to the main code section.
 
          ORG    0x0004
          goto   INTERRUPT_THINGS
@@ -173,11 +177,15 @@ init
         bcf       INTCON, 2
 
         bank1
-        clrf      TRISA          ; All port A is output
+        movlw     b'00000001'
+        movwf     TRISA
+    ;    clrf      TRISA          ; All port A is output
         movlw     b'11110010'    ; Set required keypad inputs
         movwf     TRISB
         clrf      TRISC          ; All port C is output
-        clrf      TRISD          ; All port D is output
+        movlw     b'00000001'
+        movwf     TRISD
+;        clrf      TRISD          ; All port D is output
 
         bank0
         clrf      PORTA
@@ -185,6 +193,7 @@ init
         clrf      PORTC
         clrf      PORTD
 
+        call      InitADC
         call      InitLCD        ;Initialize the LCD (code in lcd.asm; imported by lcd.inc)
 
 ;***************************************
@@ -883,17 +892,26 @@ BEGIN_OPERATION
     banksel   OPTION_REG
     movwf     OPTION_REG
     bank0
+    call    CHECK_TRAY
     call    STEPPER_DRIVERFOR
     call    HalfS
     call    HalfS
-    call    HalfS
-    call    HalfS
+    call    SERVO_START
+
+    call    ADC_MainLoop
+
+
     call    STEPPER_DRIVERREV
     bsf     INTCON, 5
     movf    optime, W
     movwf   optime_final
+
     return
 
+
+;*********
+; STEPPER MOTOR DRIVING THINGS
+; *********
 STEPPER_DRIVERFOR
     bsf     STEPA
     call    HalfS
@@ -932,7 +950,23 @@ STEPPER_DRIVERREV
     call    HalfS
     return
 
-
+;***************
+; SERVO MOTORS
+;***************
+SERVO_START
+    bank1
+    movlw   b'00111111'
+    movwf   PR2
+    bank0
+    movwf   CCP1CON
+    movlw   b'00000100'
+    movwf   CCPR1L
+    movlw   0xFF
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    return
 
 ;****************
 ; INTERRUPT THINGS
@@ -957,6 +991,84 @@ TIMER_ISR
     movlw   d'38'
     movwf   count38
     return
+
+
+;**************
+; ADC THINGS
+;**************
+
+InitADC
+    bank1
+    movlw   b'10001110'
+    movwf   ADCON1
+
+    bank0
+    movlw   b'11000101'
+    movwf   ADCON0
+    return
+
+ADC_MainLoop
+    bsf     ADCON0, 2
+   ; btfsc   ADCON0, 2
+   ; goto    $-1
+
+    call    ADC_Delay
+
+ADC_Delay
+    movlw   0xFF
+    movwf   adc_delay
+    decfsz  adc_delay, f
+    goto    $-1
+    return
+
+
+;**************
+; CHECK TRAY
+;
+; Debounce the signal coming from the contact switches to ensure that
+; the tray is placed correctly so that operation can begin
+;**************
+
+CHECK_TRAY
+    movlw   D'1'
+    movwf   LastStableState ;assume that the switch is up
+    clrf    Tray_CheckCounter
+
+CHECK_TRAY_LOOP
+    clrw
+    btfsc   LastStableState, 0
+    goto    CHECK_TRAY_DOWN
+
+CHECK_TRAY_UP
+    btfsc   TRAYPORT
+    incf    Tray_CheckCounter, W
+    goto    END_CHECK_TRAY
+
+CHECK_TRAY_DOWN
+    btfss   TRAYPORT
+    incf    Tray_CheckCounter, W
+
+END_CHECK_TRAY
+    movwf   Tray_CheckCounter
+    xorlw   d'5'
+    btfss   STATUS, Z
+    goto    Delay1ms
+
+TRAY_CHECKED
+    comf    LastStableState, f
+    clrf    Tray_CheckCounter
+    btfsc   LastStableState, 0
+    goto    Delay1ms
+    return
+
+Delay1ms
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    goto    CHECK_TRAY_LOOP
 
     END
 
