@@ -1,5 +1,6 @@
-   ; with Digital Check 
+   ; with Digital 
    ; last updated February 25, 2014
+   ;saved as final code v1.1
       list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
       __CONFIG _CP_OFF & _WDT_OFF & _BODEN_ON & _PWRTE_ON & _HS_OSC & _WRT_ENABLE_ON & _CPD_OFF & _LVP_OFF
@@ -906,6 +907,9 @@ BEGIN_OPERATION
     bank0
     call    CHECK_TRAY
     call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
     call    HalfS
     call    HalfS
     call    SERVO_START
@@ -1007,6 +1011,7 @@ NOT_THERE
     return
 
 ON_TEST
+; DIGITAL TEST, FUNCTIONAL
     incf   data_points
     movlw   d'254'
     subwf   data_points, W
@@ -1017,6 +1022,8 @@ ON_TEST
 
     incf    voltage_temp
     goto    ON_TEST
+
+; ADC TEST
 ;    call    ADC_MainLoop
 ;    banksel ADRESL
 ;    movf    ADRESL, W
@@ -1024,6 +1031,7 @@ ON_TEST
 ;    movwf   voltage_ref
 
 LED_TEST
+; DIGITAL TEST, FUNCTIONAL
     movlw   d'0'
     movwf   data_points
     call    HalfS   ;temporary
@@ -1037,6 +1045,7 @@ LED_TEST
 
     movlw   d'2'
     return
+; ADC TEST
 ;    call    ADC_MainLoop
 ;    banksel ADRESL
 ;    movf    ADRESL, W
@@ -1064,6 +1073,7 @@ LED_TEST
    ; return
 
 FLICKER_TEST
+; DIGITAL TEST
     incf   data_points
     movlw   d'254'
     subwf   data_points, W
@@ -1071,13 +1081,14 @@ FLICKER_TEST
     goto    PASS
     btfss   LIGHT_IN
     incf    voltage_ref
-    call 	ADC_Delay
+    call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     goto    FLICKER_TEST
+;   ADC TEST
 ;   call    ADC_MainLoop
  ;   banksel ADRESL
  ;   movf    ADRESL, W
@@ -1120,42 +1131,43 @@ SET_PASS
 ; STEPPER MOTOR DRIVING THINGS
 ; *********
 STEPPER_DRIVERFOR
-	bsf		STEPA
-	call	HalfS
-	bcf		STEPA
-	call	HalfS
-	bsf		STEPC
-	call	HalfS
-	bcf		STEPC
-	call	HalfS
-	bsf		STEPB
-	call	HalfS
-	bcf		STEPB
-	call	HalfS
-	bsf		STEPD
-	call	HalfS
-	bcf		STEPD
-	call	HalfS
-	return
+;    bsf     STEPA
+;    bcf     STEPB
+;    bcf     STEPC
+;    bcf     STEPD
+;    call    HalfS
+    bsf     STEPA
+    call    HalfS
+    bcf     STEPA
+    bsf     STEPC
+    call    HalfS
+    bcf     STEPC
+    bsf     STEPB
+    call    HalfS
+    bcf     STEPB
+    bsf     STEPD
+    call    HalfS
+    bcf     STEPD
+    return
 
 STEPPER_DRIVERREV
-	bsf		STEPD
-	call	HalfS
-	bcf		STEPD
-	call	HalfS
-	bsf		STEPB
-	call	HalfS
-	bcf		STEPB
-	call	HalfS
-	bsf		STEPC
-	call	HalfS
-	bcf		STEPC
-	call	HalfS
-	bsf		STEPA
-	call	HalfS
-	bcf		STEPA
-	call	HalfS
-	return
+    bsf     STEPD
+    call    HalfS
+    bcf     STEPD
+    call    HalfS
+    bsf     STEPB
+    call    HalfS
+    bcf     STEPB
+    call    HalfS
+    bsf     STEPC
+    call    HalfS
+    bcf     STEPC
+    call    HalfS
+    bsf     STEPA
+    call    HalfS
+    bcf     STEPA
+    call    HalfS
+    return
 
 ;***************
 ; SERVO MOTORS
@@ -1239,45 +1251,45 @@ ADC_Delay
 ;**************
 
 CHECK_TRAY
-	movlw	D'1'
-	movwf	LastStableState	;assume that the switch is up
-	clrf	Tray_CheckCounter
+    movlw   D'1'
+    movwf   LastStableState ;assume that the switch is up
+    clrf    Tray_CheckCounter
 
 CHECK_TRAY_LOOP
-	clrw
-	btfsc	LastStableState, 0
-	goto	CHECK_TRAY_DOWN
+    clrw
+    btfsc   LastStableState, 0
+    goto    CHECK_TRAY_DOWN
 
 CHECK_TRAY_UP
-	btfsc	TRAYPORT
-	incf	Tray_CheckCounter, W
-	goto	END_CHECK_TRAY
+    btfsc   TRAYPORT
+    incf    Tray_CheckCounter, W
+    goto    END_CHECK_TRAY
 
 CHECK_TRAY_DOWN
-	btfss	TRAYPORT
-	incf	Tray_CheckCounter, W
+    btfss   TRAYPORT
+    incf    Tray_CheckCounter, W
 
 END_CHECK_TRAY
-	movwf	Tray_CheckCounter
-	xorlw	d'5'
-	btfss	STATUS, Z
-	goto	Delay1ms
+    movwf   Tray_CheckCounter
+    xorlw   d'5'
+    btfss   STATUS, Z
+    goto    Delay1ms
 
 TRAY_CHECKED
-	comf	LastStableState, f
-	clrf	Tray_CheckCounter
-	btfsc	LastStableState, 0
-	goto	Delay1ms
-	return
+    comf    LastStableState, f
+    clrf    Tray_CheckCounter
+    btfsc   LastStableState, 0
+    goto    Delay1ms
+    return
 
 Delay1ms
-	call 	ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
-	goto	CHECK_TRAY_LOOP
+    call    ADC_Delay
+    goto    CHECK_TRAY_LOOP
 
     END
 
