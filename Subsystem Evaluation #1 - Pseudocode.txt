@@ -139,6 +139,19 @@ ON_TEST
 			LIGHT_ON_FLAG++;
 	}
 
+	subwf	Y, w
+	Z = 0, C = 1
+	Y > w
+
+	w == Y
+	Z = 1, C = 1
+
+	Y < w
+	Z = 0, C = 0
+
+	Y <= w
+	Z = C
+
 	if(LIGHT_ON_FLAG == 4)
 		goto	FLICKER_TEST
 
