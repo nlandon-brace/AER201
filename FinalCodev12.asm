@@ -1,6 +1,7 @@
-   ; with Digital 
-   ; last updated February 25, 2014
-   ;saved as final code v1.1
+   ; with Analog Digital Conversion
+   ; last updated March 1, 2014
+   ;saved as final code v1.2
+   ; FINALLY
       list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
       __CONFIG _CP_OFF & _WDT_OFF & _BODEN_ON & _PWRTE_ON & _HS_OSC & _WRT_ENABLE_ON & _CPD_OFF & _LVP_OFF
@@ -41,10 +42,13 @@
         Tray_CheckCounter
         LastStableState
         data_points
-        voltage_ref
-        voltage_temp
+        voltage_refh
+        voltage_refl
+        voltage_temph
+        voltage_templ
         led_on_flag
         flicker_flag
+
     endc
 
     ;Declare constants for pin assignments (LCD on PORTD)
@@ -1002,9 +1006,14 @@ LIGHT_TEST
     incf    lights_total
     movlw   b'0'
     movwf   data_points
-    movwf   voltage_temp
-    movwf   voltage_ref
+    movwf   voltage_templ
+    movwf   voltage_refl
+    movwf   voltage_temph
+    movwf   voltage_refh
+    movwf   led_on_flag
+    movwf   flicker_flag
     goto    ON_TEST
+    call    InitADC
 
 NOT_THERE
     movlw   d'3'
@@ -1012,119 +1021,194 @@ NOT_THERE
 
 ON_TEST
 ; DIGITAL TEST, FUNCTIONAL
-    incf   data_points
-    movlw   d'254'
-    subwf   data_points, W
-    btfsc   STATUS, C
-    goto    LED_TEST
-    btfss   LIGHT_IN
-    goto    ON_TEST
+ ;   incf   data_points
+ ;   movlw   d'254'
+ ;   subwf   data_points, W
+ ;   btfsc   STATUS, C
+ ;   goto    LED_TEST
+ ;   btfss   LIGHT_IN
+ ;   goto    ON_TEST
 
-    incf    voltage_temp
-    goto    ON_TEST
+;    incf    voltage_temp
+;    goto    ON_TEST
 
 ; ADC TEST
-;    call    ADC_MainLoop
-;    banksel ADRESL
-;    movf    ADRESL, W
-;    bank0
-;    movwf   voltage_ref
+    call    ADC_MainLoop
+    banksel ADRESL
+    movf    ADRESL, W
+    bank0
+    movwf   voltage_refl
+    movf    ADRESH, W
+    movwf   voltage_refh
 
 LED_TEST
 ; DIGITAL TEST, FUNCTIONAL
+;    movlw   d'0'
+;    movwf   data_points
+;    call    HalfS   ;temporary
+;    call    HalfS   ;temporary
+;    call    HalfS   ;temporary
+;    call    HalfS   ;temporary
+;    movlw   d'10'
+;    subwf   voltage_temp, W
+;    btfsc   STATUS, C
+;    goto    FLICKER_TEST
+
+;    movlw   d'2'
+;    return
+
+; ADC TEST
+    call    ADC_MainLoop
+    banksel ADRESL
+    movf    ADRESL, W
+    movwf   voltage_templ
+    bank0
+    movf    ADRESH, W
+    movwf   voltage_temph
+   
+
+    call    COMPARE
+    btfss   STATUS, C   ; if status C is set, voltage_temp > W (threshold)
+    incf    led_on_flag
+    
+    incf    data_points
+    movlw   d'254'
+    subwf   data_points, W
+    btfss   STATUS, C
+    goto    LED_TEST
+
     movlw   d'0'
     movwf   data_points
-    call    HalfS   ;temporary
-    call    HalfS   ;temporary
-    call    HalfS   ;temporary
-    call    HalfS   ;temporary
     movlw   d'10'
-    subwf   voltage_temp, W
+    subwf   led_on_flag, W
     btfsc   STATUS, C
     goto    FLICKER_TEST
-
     movlw   d'2'
     return
-; ADC TEST
-;    call    ADC_MainLoop
-;    banksel ADRESL
-;    movf    ADRESL, W
-;    bank0
-;    movwf   voltage_temp
-;    movlw   b'10010'    ; setting the threshold to be 0.1 V
-
-;   subwf   voltage_temp, W
-;    btfsc   STATUS, C   ; if status C is set, voltage_temp > W (threshold)
-;    incf    led_on_flag
-
- ;   incf    data_points
- ;   movlw   d'254'
- ;   subwf   data_points, W
- ;   btfss   STATUS, C
- ;   goto    LED_TEST
-
- ;   movlw   d'0'
- ;   movwf   data_points
- ;   movlw   d'9'
- ;   subwf   led_on_flag, W
- ;   btfsc   STATUS, C
-  ;  goto    FLICKER_TEST
-  ;  movlw   d'2'
-   ; return
 
 FLICKER_TEST
 ; DIGITAL TEST
-    incf   data_points
-    movlw   d'254'
-    subwf   data_points, W
-    btfsc   STATUS, C
-    goto    PASS
-    btfss   LIGHT_IN
-    incf    voltage_ref
-    call    ADC_Delay
-    call    ADC_Delay
-    call    ADC_Delay
-    call    ADC_Delay
-    call    ADC_Delay
-    call    ADC_Delay
-    goto    FLICKER_TEST
-;   ADC TEST
-;   call    ADC_MainLoop
- ;   banksel ADRESL
- ;   movf    ADRESL, W
- ;   bank0
-  ;  subwf   voltage_ref, W
-  ;  movwf   voltage_temp
-
-;    movlw   b'101001'
-;    subwf   voltage_temp, W
-;    btfsc   STATUS, C
-;    incf    flicker_flag
-
-;    incf    data_points
+;    incf   data_points
 ;    movlw   d'254'
 ;    subwf   data_points, W
-;    btfss   STATUS, C
+;    btfsc   STATUS, C
+;    goto    PASS
+;    btfss   LIGHT_IN
+;    incf    voltage_ref
+;    call 	ADC_Delay
+;    call    ADC_Delay
+;    call    ADC_Delay
+;    call    ADC_Delay
+;    call    ADC_Delay
+;    call    ADC_Delay
 ;    goto    FLICKER_TEST
 
- ;   movlw   d'9'
- ;   subwf   flicker_flag, W
- ;   btfsc   STATUS, C
- ;   goto    PASS
- ;   movlw   d'1'
- ;   return
-
-PASS
-    movlw   d'10'
-    subwf   voltage_ref, W
+;   ADC TEST
+    call    ADC_MainLoop
+    banksel ADRESL
+    movf    ADRESL, W
+    movwf   voltage_templ
+    bank0
+    movf    ADRESH, W
+    movwf   voltage_temph
+    call    COMPARE_REF_NEW
     btfsc   STATUS, C
-    goto    SET_PASS
+    call    SWAP_VOLTAGES
+
+;16 bit subtraction, voltage_temp = voltage_temp - voltage_reference
+;http://www.piclist.com/techref/microchip/math/sub/16bb.htm
+ 
+    movf    voltage_refl, W
+    subwf   voltage_templ
+    movf    voltage_refh, W
+    btfss   STATUS, C
+    incfsz  voltage_refh, W
+    subwf   voltage_temph
+
+    call    COMPARE
+    btfss   STATUS, C
+    incf    flicker_flag
+
+    incf    data_points
+    movlw   d'254'
+    subwf   data_points, W
+    btfss   STATUS, C
+    goto    FLICKER_TEST
+    
+    movlw   d'10'
+    subwf   flicker_flag, W
+    btfsc   STATUS, C
+    goto    PASS
     movlw   d'1'
     return
 
-SET_PASS
+PASS
     movlw   d'0'
     return
+
+SWAP_VOLTAGES
+    movf    voltage_templ, W
+    movwf   w_temp
+    movf    voltage_refl, W
+    movwf   voltage_templ
+    movf    w_temp, W
+    movwf   voltage_refl
+
+    movf    voltage_temph, W
+    movwf   w_temp
+    movf    voltage_refh, W
+    movwf   voltage_temph
+    movf    w_temp, W
+    movwf   voltage_refh
+    return
+
+COMPARE
+    movlw   d'000'
+    movwf   w_temp
+    movf    voltage_temph, W
+    subwf   w_temp, W
+    btfss   STATUS, Z
+    return
+    movlw   d'100'
+    movwf   w_temp
+    movf    voltage_templ, W
+    subwf   w_temp, W ; subtract the temp from 0.2 V.
+; If voltage > 0.2 V, C = 0
+; If voltage <= 0.2 V, C = 1
+    return
+
+
+COMPARE_REF_NEW
+;    movf    voltage_temph, W ; temp is Y
+;    xorlw   0x80
+;    movwf   w_temp
+;    movf    voltage_refh, W ; ref is X
+;    xorlw   0x80
+;    subwf   w_temp, W
+;    goto    EQUAL2
+    movf    voltage_temph, W
+    subwf   voltage_refh, W
+EQUAL2
+    btfss   STATUS, Z
+    return
+    movf    voltage_templ, W
+    subwf   voltage_refl, W
+
+; if temp > ref, status C = 1
+; if ref > temp, status C = 0
+    return
+
+; DIGITAL TEST, FUNCTIONAL
+;    movlw   d'10'
+;   subwf   voltage_ref, W
+;    btfsc   STATUS, C
+;    goto    SET_PASS
+;    movlw   d'1'
+;    return
+
+;SET_PASS
+;    movlw   d'0'
+;    return
 
 
 ;*********
@@ -1136,38 +1220,38 @@ STEPPER_DRIVERFOR
 ;    bcf     STEPC
 ;    bcf     STEPD
 ;    call    HalfS
-    bsf     STEPA
-    call    HalfS
-    bcf     STEPA
-    bsf     STEPC
-    call    HalfS
-    bcf     STEPC
-    bsf     STEPB
-    call    HalfS
-    bcf     STEPB
-    bsf     STEPD
-    call    HalfS
-    bcf     STEPD
-    return
+	bsf		STEPA
+	call	HalfS
+	bcf     STEPA
+	bsf     STEPC
+	call	HalfS
+	bcf     STEPC
+	bsf     STEPB
+	call	HalfS
+	bcf     STEPB
+	bsf     STEPD
+	call	HalfS
+	bcf     STEPD
+   	return
 
 STEPPER_DRIVERREV
-    bsf     STEPD
-    call    HalfS
-    bcf     STEPD
-    call    HalfS
-    bsf     STEPB
-    call    HalfS
-    bcf     STEPB
-    call    HalfS
-    bsf     STEPC
-    call    HalfS
-    bcf     STEPC
-    call    HalfS
-    bsf     STEPA
-    call    HalfS
-    bcf     STEPA
-    call    HalfS
-    return
+	bsf		STEPD
+	call	HalfS
+	bcf		STEPD
+	call	HalfS
+	bsf		STEPB
+	call	HalfS
+	bcf		STEPB
+	call	HalfS
+	bsf		STEPC
+	call	HalfS
+	bcf		STEPC
+	call	HalfS
+	bsf		STEPA
+	call	HalfS
+	bcf		STEPA
+	call	HalfS
+	return
 
 ;***************
 ; SERVO MOTORS
@@ -1222,26 +1306,38 @@ InitADC
     bank1
     movlw   b'10001110'
     movwf   ADCON1
-
     bank0
     movlw   b'11000101'
     movwf   ADCON0
     return
 
 ADC_MainLoop
-    bsf     ADCON0, 2
-    btfsc   ADCON0, 2
-    goto    $-1
-
     call    ADC_Delay
-
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    call    ADC_Delay
+    bsf     ADCON0, GO
+WAIT
+    btfsc   ADCON0, GO
+    goto    WAIT
+    bank0
+;    call    ADC_Delay
+;    call    ADC_Delay
+;    call    ADC_Delay
+;    call    ADC_Delay
+    return
+ 
 ADC_Delay
     movlw   0xFF
     movwf   adc_delay
     decfsz  adc_delay, f
     goto    $-1
+    nop
     return
-
 
 ;**************
 ; CHECK TRAY
@@ -1251,45 +1347,45 @@ ADC_Delay
 ;**************
 
 CHECK_TRAY
-    movlw   D'1'
-    movwf   LastStableState ;assume that the switch is up
-    clrf    Tray_CheckCounter
+	movlw	D'1'
+	movwf	LastStableState	;assume that the switch is up
+	clrf	Tray_CheckCounter
 
 CHECK_TRAY_LOOP
-    clrw
-    btfsc   LastStableState, 0
-    goto    CHECK_TRAY_DOWN
+	clrw
+	btfsc	LastStableState, 0
+	goto	CHECK_TRAY_DOWN
 
 CHECK_TRAY_UP
-    btfsc   TRAYPORT
-    incf    Tray_CheckCounter, W
-    goto    END_CHECK_TRAY
+	btfsc	TRAYPORT
+	incf	Tray_CheckCounter, W
+	goto	END_CHECK_TRAY
 
 CHECK_TRAY_DOWN
-    btfss   TRAYPORT
-    incf    Tray_CheckCounter, W
+	btfss	TRAYPORT
+	incf	Tray_CheckCounter, W
 
 END_CHECK_TRAY
-    movwf   Tray_CheckCounter
-    xorlw   d'5'
-    btfss   STATUS, Z
-    goto    Delay1ms
+	movwf	Tray_CheckCounter
+	xorlw	d'5'
+	btfss	STATUS, Z
+	goto	Delay1ms
 
 TRAY_CHECKED
-    comf    LastStableState, f
-    clrf    Tray_CheckCounter
-    btfsc   LastStableState, 0
-    goto    Delay1ms
-    return
+	comf	LastStableState, f
+	clrf	Tray_CheckCounter
+	btfsc	LastStableState, 0
+	goto	Delay1ms
+	return
 
 Delay1ms
+	call 	ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
-    call    ADC_Delay
-    goto    CHECK_TRAY_LOOP
+	goto	CHECK_TRAY_LOOP
 
     END
 

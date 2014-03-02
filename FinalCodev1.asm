@@ -1173,8 +1173,8 @@ InitADC
 
 ADC_MainLoop
     bsf     ADCON0, 2
-   ; btfsc   ADCON0, 2
-   ; goto    $-1
+    btfsc   ADCON0, 2
+    goto    $-1
 
     call    ADC_Delay
 
