@@ -89,11 +89,11 @@ OpMessage
 
 End_Message1
         addwf   PCL,F
-        dt      "DONE! A: Op. Time, B: # of Lights",0
+        dt      "A:Time B:Summary",0
 
 End_Message2
         addwf   PCL, F
-        dt      "C: Light Info, D: Return to Standby",0
+        dt      "C:Info D:Standby",0
 
 Op_time1
         addwf   PCL,F
@@ -288,21 +288,21 @@ COUNTDOWN
         call    HalfS
         call    BEGIN_OPERATION
         call    ClrLCD
-        movlw   "3"
+        movlw   "D"
+        call    WR_DATA
+        movlw   "O"
+        call    WR_DATA
+        movlw   "N"
+        call    WR_DATA
+        movlw   "E"
+        call    WR_DATA
+        movlw   "!"
         call    WR_DATA
         call    HalfS
         call    HalfS
-        call    ClrLCD
-        movlw   "2"
-        call    WR_DATA
         call    HalfS
         call    HalfS
-        call    ClrLCD
-        movlw   "1"
-        call    WR_DATA
-        call    HalfS
-        call    HalfS
-        call    ClrLCD
+
 ;Temporary Countdown Ends
 
 ;Ending Menu Begins
@@ -313,12 +313,12 @@ ENDING
         Display End_Message2    ;Display the second line of the end message
 
 END_DISPLAY                     ; Shifts the ending messages to the left
-        movlw   b'00011000'
-        call    WR_INS
-        call    HalfS
+       ; movlw   b'00011000'
+        ;call    WR_INS
+        ;call    HalfS
 
         btfss   PORTB,1             ; Check for input from the keypad
-        goto    END_DISPLAY         ; if no input, keep displaying the end message
+        goto    $-1         ; if no input, keep displaying the end message
 
         swapf   PORTB, W            ;When input is detected, read it in to W
         andlw   0x0F
