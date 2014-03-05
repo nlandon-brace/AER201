@@ -1,6 +1,6 @@
-   ; with ADC and Servos, 2014
-   ;saved as final code v2.0
-   ; updated March 5 2014
+   ; with ADC & Servos & Summary Screen :) 
+   ; last updated March 5, 2014
+   ;saved as final code v2.1
       list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
       __CONFIG _CP_OFF & _WDT_OFF & _BODEN_ON & _PWRTE_ON & _HS_OSC & _WRT_ENABLE_ON & _CPD_OFF & _LVP_OFF
@@ -64,7 +64,7 @@
         #define MUX3    PORTA, 4
         #define MUXE    PORTA, 5
         #define IRMUX   PORTD, 1
-        #define LIGHT_IN PORTA, 5
+;        #define LIGHT_IN PORTA, 5
 
          ORG    0x0000     ;RESET vector must always be at 0x00
          goto   init       ;Just jump to the main code section.
@@ -105,7 +105,7 @@ Return_Message
 
 Lights_Tested
         addwf   PCL, F
-        dt      " lights tested",0
+        dt      "PFLN",0
 
 Stats
         addwf   PCL, F
@@ -379,7 +379,39 @@ TESTED
         movf    lights_total, W     ;move the number of lights (var) into W
         call    LBintoNum           ;convert the number of lights (binary) into decimal
         call    WR_DATA             ; display the number on the LCD
-        Display Lights_Tested       ; Display "_ lights tested"
+        movlw   " "
+        call    WR_DATA
+        movlw   "-"
+        call    WR_DATA
+        movlw   " "
+        call    WR_DATA
+        movf    stats1, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats2, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats3, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats4, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats5, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats6, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats7, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats8, W
+        call    Lights_Tested
+        call    WR_DATA
+        movf    stats9, W
+        call    Lights_Tested
+        call    WR_DATA
         call    Switch_Lines
         Display Return_Message
 
