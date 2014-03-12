@@ -1,6 +1,7 @@
-   ; with ADC & Servos & Summary Screen & Emergency Stop (glitchy)
-   ; last updated March 5, 2014
-   ;saved as final code v2.1
+   ; with ADC & Servos & Summary Screen & Emergency stop (glitchy)
+   ; last updated March 11, 2014
+   ;saved as final code v2.2
+   ; For team eval #1
       list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
       __CONFIG _CP_OFF & _WDT_OFF & _BODEN_ON & _PWRTE_ON & _HS_OSC & _WRT_ENABLE_ON & _CPD_OFF & _LVP_OFF
@@ -191,13 +192,15 @@ bank3   macro
 init
         bsf       INTCON, GIE
         bsf       INTCON, 5
+        bsf       INTCON, 4
         bcf       INTCON, 2
+        bcf       INTCON, 1
 
         bank1
         movlw     b'00000001'
         movwf     TRISA
     ;    clrf      TRISA          ; All port A is output
-        movlw     b'11110110'    ; Set required keypad inputs
+        movlw     b'11110111'    ; Set required keypad inputs & interrupts
         movwf     TRISB
         clrf      TRISC          ; All port C is output
         movlw     b'00000011'
@@ -1309,7 +1312,7 @@ SERVO_NEUTRAL
     return
 
 SERVO_ON
-    movlw   b'01010010'
+    movlw   b'01011111'
     movwf   CCPR1L
     clrf    TMR2
     call    ADC_Delay
@@ -1327,6 +1330,8 @@ INTERRUPT_THINGS
     movwf  status_temp
     btfsc  INTCON, 2
     call   TIMER_ISR
+    btfsc  INTCON, 1
+    call   EMERGSTOP_ISR
     movf   status_temp, W
     movwf  STATUS
     swapf  w_temp, f
@@ -1342,6 +1347,45 @@ TIMER_ISR
     movwf   count38
     return
 
+EMERGSTOP_ISR
+    btfss   PORTB, 0
+    return
+    
+    bcf     INTCON, 1
+    call    ClrLCD
+    movlw   "E"
+    call    WR_DATA
+    movlw   "M"
+    call    WR_DATA
+    movlw   "E"
+    call    WR_DATA
+    movlw   "R"
+    call    WR_DATA
+    movlw   "G"
+    call    WR_DATA
+    movlw   "E"
+    call    WR_DATA
+    movlw   "N"
+    call    WR_DATA
+    movlw   "C"
+    call    WR_DATA
+    movlw   "Y"
+    call    WR_DATA
+    movlw   " "
+    call    WR_DATA
+    movlw   "S"
+    call    WR_DATA
+    movlw   "T"
+    call    WR_DATA
+    movlw   "O"
+    call    WR_DATA
+    movlw   "P"
+    call    WR_DATA
+    btfsc   PORTB, 0
+    goto    $-1
+    call    ClrLCD
+    Display OpMessage
+    return
 
 ;**************
 ; ADC THINGS
