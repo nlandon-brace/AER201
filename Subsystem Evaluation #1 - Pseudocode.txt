@@ -257,7 +257,7 @@ WAIT
 
 TIM20	
 	movlwf	084H
-	movlwftimer_counter
+	movlwf  timer_counter
 
 TIMER_LOOP
 	decfsz	TIMCNT, F
