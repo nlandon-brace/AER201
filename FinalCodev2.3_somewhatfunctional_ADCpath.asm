@@ -1162,7 +1162,7 @@ FLICKER_TEST
     btfss   STATUS, C
     goto    FLICKER_TEST
 
-    movlw   d'1'
+    movlw   d'5'
     subwf   flicker_flag, W
     btfsc   STATUS, C
     goto    LIGHT_STATUS
@@ -1171,7 +1171,7 @@ FLICKER_TEST
     goto    FLICKER_TEST
 
 LIGHT_STATUS
-    movlw   d'1'
+    movlw   d'5'
     subwf   flicker_flag, W
     btfsc   STATUS, C
     goto    PASS
