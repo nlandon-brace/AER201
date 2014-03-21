@@ -67,7 +67,7 @@
         #define MUX3    PORTA, 4
         #define MUXE    PORTA, 5
         #define IRMUX   PORTD, 1
-
+        #define IR_POWER    PORTC, 6
 ;        #define LIGHT_IN PORTA, 5
 
          ORG    0x0000     ;RESET vector must always be at 0x00
@@ -195,7 +195,7 @@ bank3   macro
 init
         bsf       INTCON, GIE
         bsf       INTCON, 5
-     ;   bsf       INTCON, 4
+        bcf       INTCON, 4
         bcf       INTCON, 2
         bcf       INTCON, 1
 
@@ -1071,6 +1071,8 @@ ARRAY_LIFT
 ;***********
 
 LIGHT_TEST
+    bsf     IR_POWER
+    call    ADC_Delay
     btfss   IRMUX
     goto    NOT_THERE
     incf    lights_total
@@ -1084,6 +1086,8 @@ LIGHT_TEST
     movwf   flicker_flag
     movlw   d'30'
     movwf   loop_counter
+    bcf     IR_POWER
+    call    ADC_Delay
     goto    ON_TEST
     call    InitADC
 
@@ -1300,91 +1304,91 @@ STEPPER_DRIVERFOR
 ;    bcf     STEPC
 ;    bcf     STEPD
 ;    call    HalfS
-	bsf		STEPA
+    bsf     STEPA
     call    lcdLongDelay
-	bcf     STEPA
-	bsf     STEPC
-	call    lcdLongDelay
-	bcf     STEPC
-	bsf     STEPB
-	call    lcdLongDelay
-	bcf     STEPB
-	bsf     STEPD
-	call    lcdLongDelay
-	bcf     STEPD
+    bcf     STEPA
+    bsf     STEPC
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPB
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPD
+    call    lcdLongDelay
+    bcf     STEPD
 
-    bsf		STEPA
+    bsf     STEPA
     call    lcdLongDelay
-	bcf     STEPA
-	bsf     STEPC
-	call    lcdLongDelay
-	bcf     STEPC
-	bsf     STEPB
-	call    lcdLongDelay
-	bcf     STEPB
-	bsf     STEPD
-	call    lcdLongDelay
-	bcf     STEPD
+    bcf     STEPA
+    bsf     STEPC
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPB
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPD
+    call    lcdLongDelay
+    bcf     STEPD
 
-    bsf		STEPA
+    bsf     STEPA
     call    lcdLongDelay
-	bcf     STEPA
-	bsf     STEPC
-	call    lcdLongDelay
-	bcf     STEPC
-	bsf     STEPB
-	call    lcdLongDelay
-	bcf     STEPB
-	bsf     STEPD
-	call    lcdLongDelay
-	bcf     STEPD
+    bcf     STEPA
+    bsf     STEPC
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPB
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPD
+    call    lcdLongDelay
+    bcf     STEPD
 
     return
 
 STEPPER_DRIVERREV
-	bsf		STEPD
-	call    lcdLongDelay
-    bcf		STEPD
-	bsf		STEPB
-	call    lcdLongDelay
-    bcf		STEPB
-	bsf		STEPC
-	call    lcdLongDelay
-    bcf		STEPC
-	bsf		STEPA
-	call    lcdLongDelay
-	bcf		STEPA
+    bsf     STEPD
+    call    lcdLongDelay
+    bcf     STEPD
+    bsf     STEPB
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPC
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPA
+    call    lcdLongDelay
+    bcf     STEPA
     call    lcdLongDelay
 
-    bsf		STEPD
-	call    lcdLongDelay
-    bcf		STEPD
-	bsf		STEPB
-	call    lcdLongDelay
-    bcf		STEPB
-	bsf		STEPC
-	call    lcdLongDelay
-    bcf		STEPC
-	bsf		STEPA
-	call    lcdLongDelay
-	bcf		STEPA
+    bsf     STEPD
+    call    lcdLongDelay
+    bcf     STEPD
+    bsf     STEPB
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPC
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPA
+    call    lcdLongDelay
+    bcf     STEPA
     call    lcdLongDelay
 
-    bsf		STEPD
-	call    lcdLongDelay
-    bcf		STEPD
-	bsf		STEPB
-	call    lcdLongDelay
-    bcf		STEPB
-	bsf		STEPC
-	call    lcdLongDelay
-    bcf		STEPC
-	bsf		STEPA
-	call    lcdLongDelay
-	bcf		STEPA
+    bsf     STEPD
+    call    lcdLongDelay
+    bcf     STEPD
+    bsf     STEPB
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPC
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPA
+    call    lcdLongDelay
+    bcf     STEPA
     call    lcdLongDelay
 
-	return
+    return
 
 ;***************
 ; SERVO MOTORS
@@ -1522,45 +1526,45 @@ ADC_Delay
 ;**************
 
 CHECK_TRAY
-	movlw	D'1'
-	movwf	LastStableState	;assume that the switch is up
-	clrf	Tray_CheckCounter
+    movlw   D'1'
+    movwf   LastStableState ;assume that the switch is up
+    clrf    Tray_CheckCounter
 
 CHECK_TRAY_LOOP
-	clrw
-	btfsc	LastStableState, 0
-	goto	CHECK_TRAY_DOWN
+    clrw
+    btfsc   LastStableState, 0
+    goto    CHECK_TRAY_DOWN
 
 CHECK_TRAY_UP
-	btfsc	TRAYPORT
-	incf	Tray_CheckCounter, W
-	goto	END_CHECK_TRAY
+    btfsc   TRAYPORT
+    incf    Tray_CheckCounter, W
+    goto    END_CHECK_TRAY
 
 CHECK_TRAY_DOWN
-	btfss	TRAYPORT
-	incf	Tray_CheckCounter, W
+    btfss   TRAYPORT
+    incf    Tray_CheckCounter, W
 
 END_CHECK_TRAY
-	movwf	Tray_CheckCounter
-	xorlw	d'5'
-	btfss	STATUS, Z
-	goto	Delay1ms
+    movwf   Tray_CheckCounter
+    xorlw   d'5'
+    btfss   STATUS, Z
+    goto    Delay1ms
 
 TRAY_CHECKED
-	comf	LastStableState, f
-	clrf	Tray_CheckCounter
-	btfsc	LastStableState, 0
-	goto	Delay1ms
-	return
+    comf    LastStableState, f
+    clrf    Tray_CheckCounter
+    btfsc   LastStableState, 0
+    goto    Delay1ms
+    return
 
 Delay1ms
-	call 	ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
-	goto	CHECK_TRAY_LOOP
+    call    ADC_Delay
+    goto    CHECK_TRAY_LOOP
 
     END
 
