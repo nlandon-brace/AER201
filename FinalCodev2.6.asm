@@ -1,6 +1,6 @@
-; Robot latest and greatest march 19
-; Muxes have been returned
-; They seem to be working now...
+; Things work!
+; March 22, 2014
+; Changed loop counter on motors for testing purposes
 
      list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
@@ -950,7 +950,7 @@ BEGIN_OPERATION
     movwf     OPTION_REG
     bank0
     call    CHECK_TRAY
-    movlw   d'50'
+    movlw   d'1'
     movwf   loop_counter
 ARRAY_LOWER
     call    STEPPER_DRIVERREV
@@ -985,7 +985,7 @@ CHECK_LED2
     call    HalfS
     call    LIGHT_TEST
     movwf   stats2
-
+    
 CHECK_LED3
     bcf     MUX0
     bsf     MUX1
@@ -1045,7 +1045,7 @@ CHECK_LED9
 END_OPERATION
     call    SERVO_NEUTRAL
     bcf     STEPD
-    movlw   d'50'
+    movlw   d'1'
     movwf   loop_counter
 
 ARRAY_LIFT
@@ -1071,7 +1071,7 @@ ARRAY_LIFT
 ;***********
 
 LIGHT_TEST
-    bsf     IR_POWER
+    bcf     IR_POWER
     call    ADC_Delay
     btfss   IRMUX
     goto    NOT_THERE
@@ -1086,8 +1086,8 @@ LIGHT_TEST
     movwf   flicker_flag
     movlw   d'30'
     movwf   loop_counter
-    bcf     IR_POWER
-    call    ADC_Delay
+    bsf     IR_POWER
+    call    HalfS
     goto    ON_TEST
     call    InitADC
 
