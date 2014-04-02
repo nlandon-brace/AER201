@@ -1,6 +1,7 @@
 ; Things work!
 ; March 22, 2014
 ; Changed loop counter on motors for testing purposes
+; THE SERVO TURNED ON A LIGHT
 
      list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions

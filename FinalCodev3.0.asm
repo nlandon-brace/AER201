@@ -1,6 +1,7 @@
-; Robot latest and greatest march 22
-; Muxes have been returned
-; With separate port for #9
+; Things work!
+; April 2, 2014
+; yellow mux ('cept for number 9') seems to be functional 
+; This is the code that seems to work after the robot was disassembled
 
      list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
@@ -61,11 +62,11 @@
         #define STEPC   PORTD, 4
         #define STEPD   PORTC, 3
         #define TRAYPORT PORTD, 0
-        #define MUX0    PORTA, 4
-        #define MUX1    PORTA, 5
-        #define MUX2    PORTC, 4
-        #define MUX3    PORTC, 5
-        #define MUXE    PORTA, 2
+        #define MUX0    PORTA, 1
+        #define MUX1    PORTA, 2
+        #define MUX2    PORTA, 3
+        #define MUX3    PORTA, 4
+        #define MUXE    PORTA, 5
         #define IRMUX   PORTD, 1
         #define IR_POWER    PORTC, 6
 ;        #define LIGHT_IN PORTA, 5
@@ -200,7 +201,7 @@ init
         bcf       INTCON, 1
 
         bank1
-        movlw     b'00001001'
+        movlw     b'00000001'
         movwf     TRISA
     ;    clrf      TRISA          ; All port A is output
         movlw     b'11110111'    ; Set required keypad inputs & interrupts
@@ -225,7 +226,6 @@ init
 ; Main code
 ;***************************************
 STANDBY_DISPLAY
-        bcf         PORTA, 3
         call        ClrLCD
         Display     Welcome_Msg1    ;Display line 1 of the welcome message
         call        Switch_Lines    ; Switch lines
@@ -951,28 +951,23 @@ BEGIN_OPERATION
     movwf     OPTION_REG
     bank0
     call    CHECK_TRAY
-    movlw   d'1'
+    movlw   d'30'
     movwf   loop_counter
 ARRAY_LOWER
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
-    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERFOR
     decfsz  loop_counter
     goto    ARRAY_LOWER
     bsf     STEPD
     call    HalfS
     call    HalfS
     call    SERVO_ON
-
-    banksel ADCON0
-    movlw   b'11011101'
-    movwf   ADCON0
-    bank0
 
 CHECK_LED1
     bcf     MUXE
@@ -981,66 +976,62 @@ CHECK_LED1
     bcf     MUX2
     bcf     MUX3
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats1
-
+    call    HalfS
+    
 CHECK_LED2
     bsf     MUX0
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats2
-    
+    call    HalfS
+
 CHECK_LED3
     bcf     MUX0
     bsf     MUX1
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats3
+    call    HalfS
 
 CHECK_LED4
     bsf     MUX0
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats4
+    call    HalfS
 
 CHECK_LED5
     bcf     MUX0
     bcf     MUX1
     bsf     MUX2
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats5
+    call    HalfS
 
 CHECK_LED6
     bsf     MUX0
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats6
+    call    HalfS
 
 CHECK_LED7
     bsf     MUX1
     bcf     MUX0
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats7
+    call    HalfS
 
 CHECK_LED8
     bsf     MUX0
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats8
-    banksel ADCON0
-    movlw   b'11001101'
-    movwf   ADCON0
-    bank0
+    call    HalfS
 
 CHECK_LED9
     bcf     MUX0
@@ -1048,25 +1039,26 @@ CHECK_LED9
     bcf     MUX2
     bsf     MUX3
     call    HalfS
-    call    HalfS
     call    LIGHT_TEST
     movwf   stats9
+    call    HalfS
+    
 
 END_OPERATION
     call    SERVO_NEUTRAL
     bcf     STEPD
-    movlw   d'1'
+    movlw   d'30';30
     movwf   loop_counter
 
 ARRAY_LIFT
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
-    call    STEPPER_DRIVERFOR
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
+    call    STEPPER_DRIVERREV
     decfsz  loop_counter
     goto    ARRAY_LIFT
 
@@ -1106,17 +1098,6 @@ NOT_THERE
     return
 
 ON_TEST
-; DIGITAL TEST, FUNCTIONAL
- ;   incf   data_points
- ;   movlw   d'254'
- ;   subwf   data_points, W
- ;   btfsc   STATUS, C
- ;   goto    LED_TEST
- ;   btfss   LIGHT_IN
- ;   goto    ON_TEST
-
-;    incf    voltage_temp
-;    goto    ON_TEST
 
 ; ADC TEST
     call    ADC_MainLoop
@@ -1128,21 +1109,6 @@ ON_TEST
     movwf   voltage_refh
 
 LED_TEST
-; DIGITAL TEST, FUNCTIONAL
-;    movlw   d'0'
-;    movwf   data_points
-;    call    HalfS   ;temporary
-;    call    HalfS   ;temporary
-;    call    HalfS   ;temporary
-;    call    HalfS   ;temporary
-;    movlw   d'10'
-;    subwf   voltage_temp, W
-;    btfsc   STATUS, C
-;    goto    FLICKER_TEST
-
-;    movlw   d'2'
-;    return
-
 ; ADC TEST
     call    ADC_MainLoop
     banksel ADRESL
@@ -1264,7 +1230,7 @@ COMPARE_ON
     subwf   w_temp, W
     btfss   STATUS, Z
     return
-    movlw   d'60'
+    movlw   d'165'
     movwf   w_temp
     movf    voltage_templ, W
     subwf   w_temp, W ; subtract the temp from 0.2 V.
@@ -1314,91 +1280,112 @@ STEPPER_DRIVERFOR
 ;    bcf     STEPC
 ;    bcf     STEPD
 ;    call    HalfS
-	bsf		STEPA
+    bsf     STEPA
     call    lcdLongDelay
-	bcf     STEPA
-	bsf     STEPC
-	call    lcdLongDelay
-	bcf     STEPC
-	bsf     STEPB
-	call    lcdLongDelay
-	bcf     STEPB
-	bsf     STEPD
-	call    lcdLongDelay
-	bcf     STEPD
+    call    lcdLongDelay
+    bcf     STEPA
+    bsf     STEPC
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPB
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPD
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPD
 
-    bsf		STEPA
+    bsf     STEPA
     call    lcdLongDelay
-	bcf     STEPA
-	bsf     STEPC
-	call    lcdLongDelay
-	bcf     STEPC
-	bsf     STEPB
-	call    lcdLongDelay
-	bcf     STEPB
-	bsf     STEPD
-	call    lcdLongDelay
-	bcf     STEPD
+    call    lcdLongDelay
+    bcf     STEPA
+    bsf     STEPC
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPB
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPD
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPD
 
-    bsf		STEPA
+    bsf     STEPA
     call    lcdLongDelay
-	bcf     STEPA
-	bsf     STEPC
-	call    lcdLongDelay
-	bcf     STEPC
-	bsf     STEPB
-	call    lcdLongDelay
-	bcf     STEPB
-	bsf     STEPD
-	call    lcdLongDelay
-	bcf     STEPD
+    call    lcdLongDelay
+    bcf     STEPA
+    bsf     STEPC
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPB
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPD
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPD
 
     return
 
 STEPPER_DRIVERREV
-	bsf		STEPD
-	call    lcdLongDelay
-    bcf		STEPD
-	bsf		STEPB
-	call    lcdLongDelay
-    bcf		STEPB
-	bsf		STEPC
-	call    lcdLongDelay
-    bcf		STEPC
-	bsf		STEPA
-	call    lcdLongDelay
-	bcf		STEPA
+    bsf     STEPD
     call    lcdLongDelay
-
-    bsf		STEPD
-	call    lcdLongDelay
-    bcf		STEPD
-	bsf		STEPB
-	call    lcdLongDelay
-    bcf		STEPB
-	bsf		STEPC
-	call    lcdLongDelay
-    bcf		STEPC
-	bsf		STEPA
-	call    lcdLongDelay
-	bcf		STEPA
     call    lcdLongDelay
-
-    bsf		STEPD
-	call    lcdLongDelay
-    bcf		STEPD
-	bsf		STEPB
-	call    lcdLongDelay
-    bcf		STEPB
-	bsf		STEPC
-	call    lcdLongDelay
-    bcf		STEPC
-	bsf		STEPA
-	call    lcdLongDelay
-	bcf		STEPA
+    bcf     STEPD
+    bsf     STEPB
     call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPC
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPA
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPA
 
-	return
+    bsf     STEPD
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPD
+    bsf     STEPB
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPC
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPA
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPA
+
+    bsf     STEPD
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPD
+    bsf     STEPB
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPB
+    bsf     STEPC
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPC
+    bsf     STEPA
+    call    lcdLongDelay
+    call    lcdLongDelay
+    bcf     STEPA
+
+    return
 
 ;***************
 ; SERVO MOTORS
@@ -1412,7 +1399,7 @@ SERVO_NEUTRAL
     movwf   CCP1CON
     movlw   b'00000110'
     movwf   T2CON
-    movlw   b'01001000'
+    movlw   b'00000110'
     movwf   CCPR1L
     clrf    TMR2
     call    ADC_Delay
@@ -1422,7 +1409,7 @@ SERVO_NEUTRAL
     return
 
 SERVO_ON
-    movlw   b'01011111'
+    movlw   b'01100011'
     movwf   CCPR1L
     clrf    TMR2
     call    ADC_Delay
@@ -1503,9 +1490,11 @@ TIMER_ISR
 
 InitADC
     bank1
-    movlw   b'10000100'
+    movlw   b'10001110'
     movwf   ADCON1
     bank0
+    movlw   b'11000101'
+    movwf   ADCON0
     return
 
 ADC_MainLoop
@@ -1534,45 +1523,45 @@ ADC_Delay
 ;**************
 
 CHECK_TRAY
-	movlw	D'1'
-	movwf	LastStableState	;assume that the switch is up
-	clrf	Tray_CheckCounter
+    movlw   D'1'
+    movwf   LastStableState ;assume that the switch is up
+    clrf    Tray_CheckCounter
 
 CHECK_TRAY_LOOP
-	clrw
-	btfsc	LastStableState, 0
-	goto	CHECK_TRAY_DOWN
+    clrw
+    btfsc   LastStableState, 0
+    goto    CHECK_TRAY_DOWN
 
 CHECK_TRAY_UP
-	btfsc	TRAYPORT
-	incf	Tray_CheckCounter, W
-	goto	END_CHECK_TRAY
+    btfsc   TRAYPORT
+    incf    Tray_CheckCounter, W
+    goto    END_CHECK_TRAY
 
 CHECK_TRAY_DOWN
-	btfss	TRAYPORT
-	incf	Tray_CheckCounter, W
+    btfss   TRAYPORT
+    incf    Tray_CheckCounter, W
 
 END_CHECK_TRAY
-	movwf	Tray_CheckCounter
-	xorlw	d'5'
-	btfss	STATUS, Z
-	goto	Delay1ms
+    movwf   Tray_CheckCounter
+    xorlw   d'5'
+    btfss   STATUS, Z
+    goto    Delay1ms
 
 TRAY_CHECKED
-	comf	LastStableState, f
-	clrf	Tray_CheckCounter
-	btfsc	LastStableState, 0
-	goto	Delay1ms
-	return
+    comf    LastStableState, f
+    clrf    Tray_CheckCounter
+    btfsc   LastStableState, 0
+    goto    Delay1ms
+    return
 
 Delay1ms
-	call 	ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
-	goto	CHECK_TRAY_LOOP
+    call    ADC_Delay
+    goto    CHECK_TRAY_LOOP
 
     END
 
