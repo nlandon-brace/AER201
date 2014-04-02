@@ -1,7 +1,6 @@
 ; Things work!
 ; April 2, 2014
-; yellow mux ('cept for number 9') seems to be functional 
-; This is the code that seems to work after the robot was disassembled
+; Changed loop counter on motors for testing purposes
 
      list p=16f877                 ; list directive to define processor
       #include <p16f877.inc>        ; processor specific variable definitions
@@ -17,39 +16,39 @@
         lcd_d2
         com
         dat
-        optime
-        optime_final
-        lights_total
-        option_temp
-        stats_temp
-        stats1
-        stats2
-        stats3
-        stats4
-        stats5
-        stats6
-        stats7
-        stats8
-        stats9
-        count
-        ones
-        tens
-        huns
-        binary_num
-        w_temp
-        status_temp
-        count38
-        adc_delay
-        Tray_CheckCounter
-        LastStableState
-        data_points
-        voltage_refh
-        voltage_refl
-        voltage_temph
-        voltage_templ
-        led_on_flag
-        flicker_flag
-        loop_counter
+        optime  ; operation time for display (gets modified)
+        optime_final ; "permanent" operation time (if operation time needs to be viewed multiple times
+        lights_total ; total number of lights tested
+        option_temp ; used to determine which key was pressed (modifiable)
+        stats_temp  ; used to check which state the light is in (modifiable)
+        stats1  ; this is the variable which holds the state of light 1 after it is tested (permanent)
+        stats2  ; as above, for light 2
+        stats3  ; as above, for light 3
+        stats4  ; as above, for light 4
+        stats5  ; as above, for light 5
+        stats6  ; as above, for light 6
+        stats7  ; as above, for light 7
+        stats8  ; as above, for light 8
+        stats9  ; as above, for light 9 
+        count   ; used to convert optime to decimal for display
+        ones    ; ones digit of the converted binary number
+        tens    ; tens digit of the converted binary number
+        huns    ; hundreds digit of the converted binary number (hopefully not used)
+        binary_num ; move optime to this variable to allow binary --> decimal for display
+        w_temp  ; saves the value in the working register
+        status_temp ; saves the current state of the status register (for ISR)
+        count38 ; used to count to 38 ---> for operation timer
+        adc_delay   ; used for acquisition time for ADC
+        Tray_CheckCounter   ; Switch Debouncing
+        LastStableState ; Switch Debouncing
+        data_points ; number of data points collected for the current voltage of the light
+        voltage_refh    ; MSBs of the voltage for comparison (first data point collected - to determine flickering)
+        voltage_refl    ; LSBs of the voltage for comparison (first data point collected - to determine flickering)
+        voltage_temph   ; MSBs of the ADC conversion (current voltage) -- ADRESH
+        voltage_templ   ; LSBs of the ADC conversion (current voltage) -- ADRESL
+        led_on_flag     ; counts number of times LED is detected to be on (increments each time voltage_temp > On Threshold)
+        flicker_flag    ; counts number of times LED is detected to have flickered (voltage_ref - voltage_temp > Flicker Threshold)
+        loop_counter    ; counts the number of times the loop has been run - used for testing flickering and shade array movement
     endc
 
     ;Declare constants for pin assignments (LCD on PORTD)
@@ -57,28 +56,28 @@
 
         #define RS      PORTD,2
         #define E       PORTD,3
-        #define STEPA   PORTC, 0
-        #define STEPB   PORTC, 1
-        #define STEPC   PORTD, 4
-        #define STEPD   PORTC, 3
-        #define TRAYPORT PORTD, 0
-        #define MUX0    PORTA, 1
-        #define MUX1    PORTA, 2
-        #define MUX2    PORTA, 3
-        #define MUX3    PORTA, 4
-        #define MUXE    PORTA, 5
-        #define IRMUX   PORTD, 1
-        #define IR_POWER    PORTC, 6
+        #define STEPA   PORTC, 0    ;output to stepper motor port A
+        #define STEPB   PORTC, 1    ;output to stepper motor port B
+        #define STEPC   PORTD, 4    ;output to stepper motor port C
+        #define STEPD   PORTC, 3    ;output to stepper motor port D
+        #define TRAYPORT PORTD, 0   ;port for contact switch input
+        #define MUX0    PORTA, 1    ;A select, mux
+        #define MUX1    PORTA, 2    ;B select, mux
+        #define MUX2    PORTA, 3    ;C select, mux
+        #define MUX3    PORTA, 4    ;D select, mux
+        #define MUXE    PORTA, 5    ;Enable, mux
+        #define IRMUX   PORTD, 1    ; Input from IR mux (digital)
+        #define IR_POWER    PORTC, 6    ; signal to bias transistor to power IR board. 
 ;        #define LIGHT_IN PORTA, 5
 
          ORG    0x0000     ;RESET vector must always be at 0x00
          goto   init       ;Just jump to the main code section.
 
-         ORG    0x0004
+         ORG    0x0004  ; Goes here when an interrupt is triggered
          goto   INTERRUPT_THINGS
 
 ;***************************************
-; Look up table
+; Look up tables
 ;***************************************
 
 Welcome_Msg1
@@ -140,7 +139,7 @@ NO_LIGHT
         addwf   PCL, F
         dt      " - N/A",0
 ;***************************************
-; Delay: ~160us macro
+; Delay: ~160us macro -- From Sample
 ;***************************************
 LCD_DELAY macro
     movlw   0xFF
@@ -151,7 +150,7 @@ LCD_DELAY macro
 
 
 ;***************************************
-; Display macro
+; Display macro -- From Sample
 ;***************************************
 Display macro   Message
         local   loop_
@@ -191,37 +190,38 @@ bank3   macro
         endm
 
 ;***************************************
-; Initialize LCD
+; Initialize the Operation
 ;***************************************
 init
-        bsf       INTCON, GIE
-        bsf       INTCON, 5
-        bcf       INTCON, 4
-        bcf       INTCON, 2
-        bcf       INTCON, 1
+        bsf       INTCON, GIE   ; enable global interrupts
+        bsf       INTCON, 5     ; enable timer 0 interrupts
+        bcf       INTCON, 4     ; clear timer0 interrupt flag
+        bcf       INTCON, 2     ; disable internal interrupts (from Port B)
+        bcf       INTCON, 1     ; clear internal interrupt flag.
 
         bank1
         movlw     b'00000001'
-        movwf     TRISA
-    ;    clrf      TRISA          ; All port A is output
+        movwf     TRISA         ; intialize Port A to have RA0/AN1 be input (for ADC)
+    ;    clrf      TRISA          
         movlw     b'11110111'    ; Set required keypad inputs & interrupts
         movwf     TRISB
     ;    movlw     b'00110000'
     ;    movwf     TRISC
         clrf      TRISC          ; All port C is output
-        movlw     b'00000011'
+        movlw     b'00000011'   ; Enabling input from IR board and contact switches
         movwf     TRISD
-;        clrf      TRISD          ; All port D is output
+;        clrf      TRISD          
 
+; clear all ports before program runs
         bank0
         clrf      PORTA
         clrf      PORTB
         clrf      PORTC
         clrf      PORTD
 
-        call      InitADC
-        call      InitLCD        ;Initialize the LCD (code in lcd.asm; imported by lcd.inc)
-        call      SERVO_NEUTRAL
+        call      InitADC   ; initialize the ADC
+        call      InitLCD        ;Initialize the LCD 
+        call      SERVO_NEUTRAL  ; ensure the servo is in the neutral position before the tray is placed
 ;***************************************
 ; Main code
 ;***************************************
@@ -248,7 +248,7 @@ test
 STARTER
         call    ClrLCD              ;Clear the LCD for the new message
         Display OpMessage           ;Display the operation message
-        ;all temporary - these variables will be loaded during BEGIN_OPERATION
+        ;initializing variables which will be loaded during BEGIN_OPERATION
         movlw   d'0'
         movwf   optime
 
@@ -289,14 +289,11 @@ STARTER
          movwf  stats9
 
          bank0
-       ;call    BEGIN_OPERATION     ;Call the operation
 
-; Temporary countdown (while there is no operation)
 COUNTDOWN
-        call    HalfS
-        call    HalfS
-        call    BEGIN_OPERATION
-        call    ClrLCD
+        call    ADC_Delay
+        call    BEGIN_OPERATION ; Begin checking lights
+        call    ClrLCD  ; Clear LCD and display termination message
         movlw   "D"
         call    WR_DATA
         movlw   "O"
@@ -307,14 +304,11 @@ COUNTDOWN
         call    WR_DATA
         movlw   "!"
         call    WR_DATA
-        call    HalfS
+        call    HalfS   ;Delay to make termination message readable 
         call    HalfS
         call    HalfS
         call    HalfS
 
-;Temporary Countdown Ends
-
-;Ending Menu Begins
 ENDING
         call    ClrLCD  ;Clear the LCD to make space for the new message
         Display End_Message1    ;Display the first line of the end message
@@ -395,7 +389,7 @@ TESTED
         movlw   " "
         call    WR_DATA
         movf    stats1, W
-        call    Lights_Tested
+        call    Lights_Tested   ; determine which letter to display for each light in summary (N/L/F/P)
         call    WR_DATA
         movf    stats2, W
         call    Lights_Tested
@@ -502,7 +496,6 @@ CHECK1
         call    WR_DATA         ; write to the LCD
         movf    stats1, W       ; move the value stored in stats to the working register
         call    DISPLAY_ERROR   ; check to see which message to display
-        ;Display Pass
         call    SUBDISPLAY      ; display the second line of the message
         goto    LIGHTSTATS_ANALYZE  ; return to get upper menu to get new input
 
@@ -519,11 +512,10 @@ CHECK2
         call    WR_DATA
         movf    stats2, W
         call    DISPLAY_ERROR
-       ;Display Flicker_Fail
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
-
+; as in check 1, but for light 3
 CHECK3
         movf    option_temp,W
         xorlw   b'00000010'
@@ -535,11 +527,10 @@ CHECK3
         call    WR_DATA
         movf    stats3, W
         call    DISPLAY_ERROR
-       ;Display LED_Fail
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
-
+; as in check1, but for light 4
 CHECK4
         movf    option_temp,W
         xorlw   b'00000100'
@@ -553,10 +544,10 @@ CHECK4
         movf    stats4, W
         bank0
         call    DISPLAY_ERROR
-       ;Display NO_LIGHT
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
+; as in check1, but for light 5 
 CHECK5
         movf    option_temp,W
         xorlw   b'00000101'
@@ -570,10 +561,10 @@ CHECK5
         movf    stats5, W
         bank0
         call    DISPLAY_ERROR
-       ;Display Flicker_Fail
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
+; as in check1, but for light 6
 CHECK6
         movf    option_temp,W
         xorlw   b'00000110'
@@ -587,10 +578,10 @@ CHECK6
         movf    stats6, W
         bank0
         call    DISPLAY_ERROR
-       ;Display LED_Fail
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
+; as in check1, but for light 7
 CHECK7
         movf    option_temp,W
         xorlw   b'00001000'
@@ -604,10 +595,10 @@ CHECK7
         movf    stats7, W
         bank0
         call    DISPLAY_ERROR
-        ;Display Pass
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
+; as in check1 but for light 8 
 CHECK8
         movf    option_temp,W
         xorlw   b'00001001'
@@ -621,10 +612,10 @@ CHECK8
         movf    stats8, W
         bank0
         call    DISPLAY_ERROR
-       ;Display Pass
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
+; as in check1 but for light 9
 CHECK9
         movf    option_temp,W
         xorlw   b'00001010'
@@ -638,7 +629,6 @@ CHECK9
         movf    stats9, W
         bank0
         call    DISPLAY_ERROR
-       ;Display NO_LIGHT
         call    SUBDISPLAY
         goto    LIGHTSTATS_ANALYZE
 
@@ -709,7 +699,7 @@ OPTIOND
         goto    END_DISPLAY         ; otherwise stay in the end menu.
         goto    STANDBY_DISPLAY
 ;***************************************
-; LCD control
+; LCD control - From Sample
 ;***************************************
 Switch_Lines
         movlw   B'11000000'
@@ -722,7 +712,7 @@ Clear_Display
         return
 
 ;***************************************
-; Delay 0.5s
+; Delay 0.5s - From Sample
 ;***************************************
 HalfS
     local   HalfS_0
@@ -946,14 +936,14 @@ CARRYTENS
 ; OPERTION CODE
 ;**************
 BEGIN_OPERATION
-    movlw     b'11000111'
+    movlw     b'11000111'   ;intializing the timer
     banksel   OPTION_REG
-    movwf     OPTION_REG
+    movwf     OPTION_REG    ; starting the timer
     bank0
-    call    CHECK_TRAY
-    movlw   d'30'
+ ;  call    CHECK_TRAY  ; checking whether the tray is seated correctly
+    movlw   d'1'        ; initializing the loop counter for lowering the shade array
     movwf   loop_counter
-ARRAY_LOWER
+ARRAY_LOWER ;lowering the shade array
     call    STEPPER_DRIVERFOR
     call    STEPPER_DRIVERFOR
     call    STEPPER_DRIVERFOR
@@ -962,33 +952,32 @@ ARRAY_LOWER
     call    STEPPER_DRIVERFOR
     call    STEPPER_DRIVERFOR
     call    STEPPER_DRIVERFOR
-    decfsz  loop_counter
+    decfsz  loop_counter    ; if the loop counter is not 0, keep lowering!
     goto    ARRAY_LOWER
-    bsf     STEPD
-    call    HalfS
-    call    HalfS
-    call    SERVO_ON
-
+    bsf     STEPD   ; set the motor to stay at the last step
+    call    HalfS   ; delay
+    call    SERVO_ON    ; turn on the lights :)
+; TEST REMOVING HALFS DELAYS
 CHECK_LED1
-    bcf     MUXE
-    bcf     MUX0
+    bcf     MUXE    ; ground the enable to activate the mux
+    bcf     MUX0    ; ground all select pins to select light 1
     bcf     MUX1
     bcf     MUX2
     bcf     MUX3
-    call    HalfS
-    call    LIGHT_TEST
-    movwf   stats1
-    call    HalfS
+    call    HalfS   ; delay to allow switching to occur
+    call    LIGHT_TEST  ; test the light
+    movwf   stats1  ; store the result in the stat register for the light
+    call    HalfS   ; delay to ensure values have been stored correctly
     
 CHECK_LED2
-    bsf     MUX0
+    bsf     MUX0    ; select 1 to get light 2
     call    HalfS
     call    LIGHT_TEST
     movwf   stats2
     call    HalfS
 
 CHECK_LED3
-    bcf     MUX0
+    bcf     MUX0    ; select 2 to get light 3
     bsf     MUX1
     call    HalfS
     call    LIGHT_TEST
@@ -996,14 +985,14 @@ CHECK_LED3
     call    HalfS
 
 CHECK_LED4
-    bsf     MUX0
+    bsf     MUX0    ; select 3 to get light 4
     call    HalfS
     call    LIGHT_TEST
     movwf   stats4
     call    HalfS
 
 CHECK_LED5
-    bcf     MUX0
+    bcf     MUX0    ; select 4 to get light 5
     bcf     MUX1
     bsf     MUX2
     call    HalfS
@@ -1012,14 +1001,14 @@ CHECK_LED5
     call    HalfS
 
 CHECK_LED6
-    bsf     MUX0
+    bsf     MUX0    ; select 5 to get light 6
     call    HalfS
     call    LIGHT_TEST
     movwf   stats6
     call    HalfS
 
 CHECK_LED7
-    bsf     MUX1
+    bsf     MUX1    ; select 6 to get light 7
     bcf     MUX0
     call    HalfS
     call    LIGHT_TEST
@@ -1027,14 +1016,14 @@ CHECK_LED7
     call    HalfS
 
 CHECK_LED8
-    bsf     MUX0
+    bsf     MUX0    ; select 7 to get light 8 
     call    HalfS
     call    LIGHT_TEST
     movwf   stats8
     call    HalfS
 
 CHECK_LED9
-    bcf     MUX0
+    bcf     MUX0    ; select 8 to get light 9 #eternalmysteries
     bcf     MUX1
     bcf     MUX2
     bsf     MUX3
@@ -1045,9 +1034,9 @@ CHECK_LED9
     
 
 END_OPERATION
-    call    SERVO_NEUTRAL
-    bcf     STEPD
-    movlw   d'30';30
+    call    SERVO_NEUTRAL   ; turn off the lights
+    bcf     STEPD   ; clear the stepper motor from its current position
+    movlw   d'1';30 ; set the loop counter so sensor array goes up as much as it went down
     movwf   loop_counter
 
 ARRAY_LIFT
@@ -1060,10 +1049,10 @@ ARRAY_LIFT
     call    STEPPER_DRIVERREV
     call    STEPPER_DRIVERREV
     decfsz  loop_counter
-    goto    ARRAY_LIFT
+    goto    ARRAY_LIFT  ; continue lifting the array as long as the counter is not 0
 
-    bsf     INTCON, 5
-    movf    optime, W
+    bsf     INTCON, 5   ; clear the timer interrupt
+    movf    optime, W   ; save the operation time
     movwf   optime_final
 
     return
@@ -1073,12 +1062,12 @@ ARRAY_LIFT
 ;***********
 
 LIGHT_TEST
-    bcf     IR_POWER
-    call    ADC_Delay
-    btfss   IRMUX
-    goto    NOT_THERE
-    incf    lights_total
-    movlw   b'0'
+    bcf     IR_POWER    ; unbias transistor to turn on IR board
+    call    ADC_Delay   ; call delay to allow board to turn on
+    btfss   IRMUX       ; see if the light is there!
+    goto    NOT_THERE   ; if IR_MUX is low, no reflection = no light
+    incf    lights_total    ;if the light is there, increment the total number of lights
+    movlw   b'0'    ; clear data points, voltage_temp, voltage_ref, led_on and flicker counters
     movwf   data_points
     movwf   voltage_templ
     movwf   voltage_refl
@@ -1086,72 +1075,73 @@ LIGHT_TEST
     movwf   voltage_refh
     movwf   led_on_flag
     movwf   flicker_flag
-    movlw   d'30'
+    movlw   d'30'   ; SMALLER?? Set loop counter, to make sure enough data points are collected
     movwf   loop_counter
-    bsf     IR_POWER
-    call    HalfS
-    goto    ON_TEST
+    bsf     IR_POWER    ; bias transistor to turn of IR board
+    call    ADC_Delay   ; allow board to power down
+    goto    ON_TEST     ; begin testing lights
     call    InitADC
 
 NOT_THERE
     movlw   d'3'
     return
-
+; If not there, store 'N/A'
 ON_TEST
 
 ; ADC TEST
-    call    ADC_MainLoop
+    call    ADC_MainLoop    ;call for conversion of incoming voltage
     banksel ADRESL
     movf    ADRESL, W
     bank0
     movwf   voltage_refl
     movf    ADRESH, W
     movwf   voltage_refh
-
+; store ADRESL in voltage_refL and ADRESH in voltage_refH (first data point only) for reference for flickering
 LED_TEST
 ; ADC TEST
-    call    ADC_MainLoop
+    call    ADC_MainLoop    ; convert incoming voltage
     banksel ADRESL
     movf    ADRESL, W
     movwf   voltage_templ
     bank0
     movf    ADRESH, W
     movwf   voltage_temph
+; store new voltage in voltage_temp
 
-
-    call    COMPARE_ON
+    call    COMPARE_ON  ; see if voltage_temp > threshold
     btfss   STATUS, C   ; if status C is set, voltage_temp > W (threshold)
-    incf    led_on_flag
+    incf    led_on_flag ; if voltage_temp > threshold, increase the number of times the light is detected "on"
 
-    incf    data_points
-    movlw   d'254'
-    subwf   data_points, W
-    btfss   STATUS, C
+    incf    data_points ; increment number of data points used
+    movlw   d'254'  ; max out at 254 data points
+    subwf   data_points, W  ; see if data points > 254
+    btfss   STATUS, C   ; if it is, end. if not, check again
     goto    LED_TEST
 
-    movlw   d'0'
+    movlw   d'0'    ; clear data points (for flicker testing)
     movwf   data_points
-    movlw   d'10'
+    movlw   d'10'   ; test if led_flag > 10
     subwf   led_on_flag, W
-    btfsc   STATUS, C
+    btfsc   STATUS, C   ; if greater than 10, test for flickering. if not store LED fail and end checking
     goto    FLICKER_TEST
-    movlw   d'2'
+    movlw   d'2'    ; LED fail
     return
 
 FLICKER_TEST
 
 ;   ADC TEST
-    call    ADC_MainLoop
+    call    ADC_MainLoop    ; convert incoming voltage
     banksel ADRESL
     movf    ADRESL, W
     movwf   voltage_templ
     bank0
     movf    ADRESH, W
-    movwf   voltage_temph
-    call    COMPARE_REF_NEW
-    btfsc   STATUS, C
+    movwf   voltage_temph    ; store new voltage in voltage_temp
+    call    COMPARE_REF_NEW ; see if voltage_temp > voltage_reference or not
+    btfsc   STATUS, C   ; if voltage_temp < reference, swap them
     call    SWAP_VOLTAGES
 
+; Flicker voltage change - take the difference between the reference and the new voltage
 ;16 bit subtraction, voltage_temp = voltage_temp - voltage_reference
 ;http://www.piclist.com/techref/microchip/math/sub/16bb.htm
 
@@ -1162,30 +1152,31 @@ FLICKER_TEST
     incfsz  voltage_refh, W
     subwf   voltage_temph
 
+; Compare the result of subtraction (now stored in voltage_temp) to the threshold
     call    COMPARE
-    btfsc   STATUS, C
-    incf    flicker_flag
+    btfsc   STATUS, C   ; if voltage_temp > threshold (0.25 V), STATUS C = 1
+    incf    flicker_flag    ; if Status C = 1, increment the number of times it's flickered
 
-    incf    data_points
-    movlw   d'254'
+    incf    data_points ; increment number of data points taken
+    movlw   d'254'  ; if data points < 254, check again
     subwf   data_points, W
     btfss   STATUS, C
-    goto    FLICKER_TEST
+    goto    FLICKER_TEST    ; if data points > 254, check number of flickers
 
     movlw   d'10'
-    subwf   flicker_flag, W
+    subwf   flicker_flag, W ; if there have been more than 10 flickers, in 254 data points, end checking
     btfsc   STATUS, C
-    goto    LIGHT_STATUS
+    goto    LIGHT_STATUS    ; skip to storing pass as the result
 
-    decfsz  loop_counter
+    decfsz  loop_counter    ; decrease number of repeats for the loop to make. if not 0, check again
     goto    FLICKER_TEST
 
 LIGHT_STATUS
-    movlw   d'10'
+    movlw   d'10'   ; check if flicker was detected more than 10 times
     subwf   flicker_flag, W
     btfsc   STATUS, C
-    goto    PASS
-    movlw   d'1'
+    goto    PASS    ; if flicker > 10, then store pass
+    movlw   d'1'    ; otherwise, store flicker fail
     return
 
 PASS
@@ -1193,11 +1184,11 @@ PASS
     return
 
 SWAP_VOLTAGES
-    movf    voltage_templ, W
+    movf    voltage_templ, W    ; store voltage_temp in W, save W
     movwf   w_temp
-    movf    voltage_refl, W
+    movf    voltage_refl, W     ; move voltage_ref into W, move W into voltage_temp
     movwf   voltage_templ
-    movf    w_temp, W
+    movf    w_temp, W           ; move W_temp (saved W) into voltage_ref
     movwf   voltage_refl
 
     movf    voltage_temph, W
@@ -1208,6 +1199,8 @@ SWAP_VOLTAGES
     movwf   voltage_refh
     return
 
+; 16 bit compare. Voltage_temp against flicker difference threshold
+; Compare function sourced from piclist.com
 COMPARE
     movlw   d'000'
     movwf   w_temp
@@ -1218,11 +1211,13 @@ COMPARE
     movlw   d'50'
     movwf   w_temp
     movf    voltage_templ, W
-    subwf   w_temp, W ; subtract the temp from 0.2 V.
-; If voltage > 0.2 V, C = 0
-; If voltage <= 0.2 V, C = 1
+    subwf   w_temp, W ; subtract the temp from 0.25 V.
+; If voltage > 0.25 V, C = 0
+; If voltage <= 0.25 V, C = 1
     return
 
+; 16 bit compare sourced from piclist.com
+; Comparing voltage_temp to 0.8 V (ON threshold)
 COMPARE_ON
     movlw   d'000'
     movwf   w_temp
@@ -1233,11 +1228,13 @@ COMPARE_ON
     movlw   d'165'
     movwf   w_temp
     movf    voltage_templ, W
-    subwf   w_temp, W ; subtract the temp from 0.2 V.
-; If voltage > 0.2 V, C = 0
-; If voltage <= 0.2 V, C = 1
+    subwf   w_temp, W ; subtract the temp from 0.8 V.
+; If voltage > 0.8 V, C = 0
+; If voltage <= 0.8 V, C = 1
     return
 
+; 16 bit compare from piclist.com
+; Compare the new voltage measure to the reference
 COMPARE_REF_NEW
 ;    movf    voltage_temph, W ; temp is Y
 ;    xorlw   0x80
@@ -1258,28 +1255,11 @@ EQUAL2
 ; if ref > temp, status C = 0
     return
 
-; DIGITAL TEST, FUNCTIONAL
-;    movlw   d'10'
-;   subwf   voltage_ref, W
-;    btfsc   STATUS, C
-;    goto    SET_PASS
-;    movlw   d'1'
-;    return
-
-;SET_PASS
-;    movlw   d'0'
-;    return
-
-
 ;*********
 ; STEPPER MOTOR DRIVING THINGS
 ; *********
+; Driving the stepper motor "forward" - ACBD
 STEPPER_DRIVERFOR
-;    bsf     STEPA
-;    bcf     STEPB
-;    bcf     STEPC
-;    bcf     STEPD
-;    call    HalfS
     bsf     STEPA
     call    lcdLongDelay
     call    lcdLongDelay
@@ -1333,6 +1313,7 @@ STEPPER_DRIVERFOR
 
     return
 
+; Reversing the stepper motor. DBCA
 STEPPER_DRIVERREV
     bsf     STEPD
     call    lcdLongDelay
@@ -1390,28 +1371,29 @@ STEPPER_DRIVERREV
 ;***************
 ; SERVO MOTORS
 ;***************
+; Servo neutral initializes servo position, turns lights off 
 SERVO_NEUTRAL
     bank1
-    movlw   b'10000000'
+    movlw   b'10000000' ; set timer period (128)
     movwf   PR2
     bank0
-    movlw   b'00001100'
+    movlw   b'00001100' ; setting to PWM mode
     movwf   CCP1CON
-    movlw   b'00000110'
+    movlw   b'00000110' ; set the timer pre-scaler (1:16) and turn on timer
     movwf   T2CON
-    movlw   b'00000110'
+    movlw   b'00000110' ; setting duty cycle to 6%
     movwf   CCPR1L
-    clrf    TMR2
+    clrf    TMR2    ; clear timer before starting
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
     return
-
+; turn lights on :) 
 SERVO_ON
-    movlw   b'01100011'
+    movlw   b'01100011' ; change the duty cycle to 99%
     movwf   CCPR1L
-    clrf    TMR2
+    clrf    TMR2    ; clear the timer
     call    ADC_Delay
     call    ADC_Delay
     call    ADC_Delay
@@ -1422,28 +1404,29 @@ SERVO_ON
 ; INTERRUPT THINGS
 ; ****************
 INTERRUPT_THINGS
-    movwf  w_temp
-    movf   STATUS, W
-    movwf  status_temp
-    btfsc  INTCON, 2
-    call   TIMER_ISR
-  ;  btfsc  INTCON, 1
+    movwf  w_temp   ; move whatever is in W to a temp register
+    movf   STATUS, W    ;move status to the W register
+    movwf  status_temp  ; save the status register in a temp register
+    btfsc  INTCON, 2    ; test to see if the timer is causing the interrupt
+    call   TIMER_ISR    ; if it's the timer, go to the timer ISR
+  ;  btfsc  INTCON, 1   ; one way of doing the emergency stop...test to see if internal interrupt
   ;  call   EMERGSTOP_ISR
-    movf   status_temp, W
+    movf   status_temp, W   ; restore the status register
     movwf  STATUS
-    swapf  w_temp, f
+    swapf  w_temp, f    ; restore W
     swapf  w_temp, w
-    retfie
+    retfie  ; return from interrupt
 
 TIMER_ISR
-    bcf     INTCON, 2
-    decfsz  count38, f
-    return
-    incf    optime
-    movlw   d'38'
+    bcf     INTCON, 2   ; clear the timer flag
+    decfsz  count38, f  ; decrease the counter from 38 (timer interrupt happens ~38 times/second)
+    return  ; if the interrupt hasn't happened 38 times, return to main program
+    incf    optime  ; if it has, increment optime
+    movlw   d'38'   ; restore counter to 38
     movwf   count38
-    return
+    return  ; return to main
 
+; Emergency Stop ISR would display Emergency Stop Message and poll for the interrupt to clear
 ;EMERGSTOP_ISR
  ;   btfss   PORTB, 0
  ;   return
@@ -1487,25 +1470,25 @@ TIMER_ISR
 ;**************
 ; ADC THINGS
 ;**************
-
+; Initialize the ADC
 InitADC
     bank1
-    movlw   b'10001110'
+    movlw   b'10001110' ; right justified, only RA0 is Analog, Vref+ = Vdd, Vref- = Vss
     movwf   ADCON1
     bank0
-    movlw   b'11000101'
+    movlw   b'11000101' ; setting for internal clock to be used, RA0 to be tested, turn on ADC
     movwf   ADCON0
     return
 
 ADC_MainLoop
+    call    ADC_Delay   ; wait acquisition time
     call    ADC_Delay
-    call    ADC_Delay
-    bsf     ADCON0, GO
+    bsf     ADCON0, GO  ; start conversion
 WAIT
     btfsc   ADCON0, GO
-    goto    WAIT
+    goto    WAIT    ; wait until conversion completes
     bank0
-    return
+    return  ; return to main code
 
 ADC_Delay
     movlw   0xFF
